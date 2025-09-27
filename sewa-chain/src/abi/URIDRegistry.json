@@ -125,6 +125,25 @@
   {
     "inputs": [
       {
+        "internalType": "address",
+        "name": "_registrar",
+        "type": "address"
+      }
+    ],
+    "name": "getRegistrationCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "bytes32",
         "name": "_uridHash",
         "type": "bytes32"
@@ -190,25 +209,6 @@
       {
         "internalType": "uint256",
         "name": "contractBalance",
-        "type": "uint256"
-      }
-    ],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "address",
-        "name": "_registrar",
-        "type": "address"
-      }
-    ],
-    "name": "getRegistrationCount",
-    "outputs": [
-      {
-        "internalType": "uint256",
-        "name": "",
         "type": "uint256"
       }
     ],

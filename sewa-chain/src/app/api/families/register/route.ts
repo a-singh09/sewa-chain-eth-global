@@ -1,468 +1,156 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getContractService } from "@/services/ContractService";
-import { URIDService, AadhaarVerifiedFamilyData } from "@/lib/urid-service";
-import { volunteerSessionStore } from "@/lib/volunteer-session-store";
-import type { VolunteerSession } from "@/types";
+import { getWorldChainContractService } from "@/services/WorldChainContractService";
+import { WorldChainService } from "@/services/WorldChainService";
+import { getVolunteerSession } from "@/lib/volunteer-session";
 
-export interface RegisterFamilyRequest {
-  volunteerSession: string;
-  familyDetails: {
-    headOfFamily: string;
-    familySize: number;
-    location: string;
-    contactNumber: string;
-  };
-  aadhaarProof: {
-    hashedIdentifier: string;
-    credentialSubject: {
-      nationality: string;
-      gender: string;
-      minimumAge: boolean;
-    };
-    verificationTimestamp: number;
-  };
-}
-
-export interface RegisterFamilyResponse {
-  success: boolean;
-  urid?: string;
-  uridHash?: string;
-  qrCodeDataURL?: string;
-  transactionHash?: string;
-  verificationStatus?: {
-    aadhaarVerified: boolean;
-    volunteerVerified: boolean;
-    duplicateCheck: boolean;
-  };
-  error?: {
-    code: string;
-    message: string;
-  };
+interface RegisterFamilyRequest {
+  aadhaarNumber: string;
+  familySize: number;
+  location?: string;
 }
 
 /**
- * Family Registration API Route with Self Protocol Integration
- * Handles Aadhaar verification results and creates privacy-preserving family records
+ * Register a family on the World Chain blockchain
+ * POST /api/families/register
  */
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = (await req.json()) as RegisterFamilyRequest;
+    const body: RegisterFamilyRequest = await request.json();
+    const { aadhaarNumber, familySize, location } = body;
 
-    // Validate required fields
-    if (!body.volunteerSession || !body.familyDetails || !body.aadhaarProof) {
+    // Validate input
+    if (!aadhaarNumber || !familySize) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "MISSING_FIELDS",
-            message:
-              "Missing required fields: volunteerSession, familyDetails, aadhaarProof",
-          },
-        } as RegisterFamilyResponse,
+        { error: "Aadhaar number and family size are required" },
         { status: 400 },
       );
     }
 
-    const { familyDetails, aadhaarProof } = body;
-
-    // Validate family details
-    if (
-      !familyDetails.headOfFamily ||
-      !familyDetails.location ||
-      !familyDetails.contactNumber
-    ) {
+    if (familySize < 1 || familySize > 20) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_FAMILY_DETAILS",
-            message:
-              "Missing family details: headOfFamily, location, contactNumber required",
-          },
-        } as RegisterFamilyResponse,
+        { error: "Family size must be between 1 and 20" },
         { status: 400 },
       );
     }
 
-    if (familyDetails.familySize < 1 || familyDetails.familySize > 20) {
+    // Validate Aadhaar number format (12 digits)
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_FAMILY_SIZE",
-            message: "Family size must be between 1 and 20",
-          },
-        } as RegisterFamilyResponse,
+        { error: "Invalid Aadhaar number format" },
         { status: 400 },
       );
     }
 
-    // Validate Aadhaar proof from Self Protocol
-    if (
-      !aadhaarProof.hashedIdentifier ||
-      !aadhaarProof.credentialSubject ||
-      !aadhaarProof.verificationTimestamp
-    ) {
+    // Get volunteer session for authorization
+    const volunteerSession = getVolunteerSession();
+    if (!volunteerSession) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_AADHAAR_PROOF",
-            message:
-              "Complete Aadhaar verification required - hashedIdentifier, credentialSubject, and verificationTimestamp missing",
-          },
-        } as RegisterFamilyResponse,
-        { status: 400 },
-      );
-    }
-
-    // Validate credential subject structure
-    const { credentialSubject } = aadhaarProof;
-    if (
-      !credentialSubject.nationality ||
-      !credentialSubject.gender ||
-      credentialSubject.minimumAge === undefined
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_CREDENTIAL_SUBJECT",
-            message:
-              "Invalid credential subject - nationality, gender, and minimumAge are required",
-          },
-        } as RegisterFamilyResponse,
-        { status: 400 },
-      );
-    }
-
-    // Validate minimum age requirement
-    if (!credentialSubject.minimumAge) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "AGE_REQUIREMENT_NOT_MET",
-            message: "Family head must be 18 years or older",
-          },
-        } as RegisterFamilyResponse,
-        { status: 400 },
-      );
-    }
-
-    // Validate volunteer session token
-    if (!volunteerSessionStore.isValidSession(body.volunteerSession)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_VOLUNTEER_SESSION",
-            message: "Invalid volunteer session",
-          },
-        } as RegisterFamilyResponse,
+        { error: "Volunteer authentication required" },
         { status: 401 },
       );
     }
 
-    const volunteerSession = volunteerSessionStore.getSession(
-      body.volunteerSession,
-    )!;
+    // Get contract service
+    const contractService = getWorldChainContractService();
 
-    // Check for duplicate Aadhaar registration
-    const duplicateCheck = URIDService.checkAadhaarDuplicate(
-      aadhaarProof.hashedIdentifier,
-    );
-    if (duplicateCheck.isDuplicate) {
+    // Generate URID hash from Aadhaar number
+    const uridHash =
+      contractService.constructor.generateURIDHash(aadhaarNumber);
+
+    // Check if family is already registered
+    const isRegistered = await contractService.isURIDRegistered(uridHash);
+    if (isRegistered) {
       return NextResponse.json(
         {
-          success: false,
-          error: {
-            code: "DUPLICATE_AADHAAR",
-            message: `Family already registered with URID: ${duplicateCheck.existingURID}. Each Aadhaar can only be registered once.`,
-          },
-        } as RegisterFamilyResponse,
+          error: "Family is already registered",
+          uridHash,
+          alreadyExists: true,
+        },
         { status: 409 },
       );
     }
 
-    // Create Aadhaar-verified family data structure
-    const aadhaarVerifiedFamilyData: AadhaarVerifiedFamilyData = {
-      hashedAadhaar: aadhaarProof.hashedIdentifier,
-      location: familyDetails.location.trim(),
-      familySize: familyDetails.familySize,
-      contactInfo: familyDetails.contactNumber.trim(),
-      registrationTimestamp: Date.now(),
-      credentialSubject: {
-        nationality: credentialSubject.nationality,
-        gender: credentialSubject.gender,
-        minimumAge: credentialSubject.minimumAge,
+    // For API route, we return the preparation data
+    // The actual blockchain transaction will be handled by the frontend using MiniKit
+    return NextResponse.json({
+      success: true,
+      message: "Family registration prepared",
+      data: {
+        uridHash,
+        familySize,
+        location,
+        volunteerNullifier: volunteerSession.nullifierHash,
+        contractAddress: process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS,
+        preparationTime: new Date().toISOString(),
       },
-      verificationTimestamp: aadhaarProof.verificationTimestamp,
-    };
-
-    // Validate the Aadhaar verification data structure
-    if (
-      !URIDService.validateAadhaarVerificationData(aadhaarVerifiedFamilyData)
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_VERIFICATION_DATA",
-            message: "Invalid Aadhaar verification data structure",
-          },
-        } as RegisterFamilyResponse,
-        { status: 400 },
-      );
-    }
-
-    // Generate URID with Aadhaar verification integration
-    let uridResult;
-    try {
-      uridResult = await URIDService.generateUniqueURID(
-        aadhaarVerifiedFamilyData,
-      );
-    } catch (error) {
-      console.error("URID generation failed:", error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "URID_GENERATION_FAILED",
-            message:
-              error instanceof Error
-                ? error.message
-                : "Failed to generate unique URID",
-          },
-        } as RegisterFamilyResponse,
-        { status: 500 },
-      );
-    }
-
-    // Register family on smart contract
-    const contractService = getContractService(
-      process.env.NODE_ENV === "production" ? "mainnet" : "testnet",
-    );
-
-    let registrationResult;
-    try {
-      registrationResult = await contractService.registerFamily(
-        uridResult.uridHash,
-        familyDetails.familySize,
-      );
-    } catch (error) {
-      console.error("Smart contract registration failed:", error);
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "CONTRACT_ERROR",
-            message: "Smart contract registration failed",
-          },
-        } as RegisterFamilyResponse,
-        { status: 500 },
-      );
-    }
-
-    if (!registrationResult.success) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "CONTRACT_ERROR",
-            message:
-              registrationResult.error || "Smart contract registration failed",
-          },
-        } as RegisterFamilyResponse,
-        { status: 500 },
-      );
-    }
-
-    // Store URID mapping with Aadhaar verification data
-    try {
-      await URIDService.storeURIDMapping(uridResult.urid, {
-        ...aadhaarVerifiedFamilyData,
-        headOfFamily: familyDetails.headOfFamily,
-        transactionHash: registrationResult.transactionHash,
-        registeredAt: new Date().toISOString(),
-        registeredBy: volunteerSession.volunteerId,
-      } as any);
-    } catch (error) {
-      console.error("Failed to store URID mapping:", error);
-      // Continue with success response as blockchain registration succeeded
-    }
-
-    // Log successful registration (privacy-preserving)
-    console.log(
-      "Family registered successfully with Self Protocol verification:",
-      {
-        urid: uridResult.urid,
-        familySize: familyDetails.familySize,
-        location: familyDetails.location,
-        nationality: credentialSubject.nationality,
-        minimumAge: credentialSubject.minimumAge,
-        transactionHash: registrationResult.transactionHash,
-        volunteerId: volunteerSession.volunteerId,
-        collisionAttempts: uridResult.attempts,
-        timestamp: new Date().toISOString(),
-      },
-    );
+    });
+  } catch (error: any) {
+    console.error("Error in family registration API:", error);
 
     return NextResponse.json(
       {
-        success: true,
-        urid: uridResult.urid,
-        uridHash: uridResult.uridHash,
-        qrCodeDataURL: uridResult.qrCodeDataURL,
-        transactionHash: registrationResult.transactionHash,
-        verificationStatus: {
-          aadhaarVerified: true,
-          volunteerVerified: true,
-          duplicateCheck: true,
-        },
-      } as RegisterFamilyResponse,
-      { status: 200 },
-    );
-  } catch (error) {
-    console.error("Family registration error:", error);
-
-    // Provide specific error handling
-    let errorCode = "REGISTRATION_FAILED";
-    let message = "Internal server error during family registration";
-
-    if (error instanceof Error) {
-      if (
-        error.message.includes("duplicate") ||
-        error.message.includes("already registered")
-      ) {
-        errorCode = "DUPLICATE_REGISTRATION";
-        message = "Family already registered in the system";
-      } else if (
-        error.message.includes("network") ||
-        error.message.includes("timeout")
-      ) {
-        errorCode = "NETWORK_ERROR";
-        message = "Network error during registration. Please try again.";
-      } else if (error.message.includes("contract")) {
-        errorCode = "CONTRACT_ERROR";
-        message = "Blockchain registration failed. Please try again.";
-      }
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: errorCode,
-          message,
-        },
-      } as RegisterFamilyResponse,
+        error: "Internal server error",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
       { status: 500 },
     );
   }
 }
 
 /**
- * GET endpoint to retrieve family registration status
+ * Get family registration status
+ * GET /api/families/register?aadhaar=123456789012
  */
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const urid = url.searchParams.get("urid");
-  const uridHash = url.searchParams.get("uridHash");
-
-  if (!urid && !uridHash) {
-    return NextResponse.json(
-      {
-        success: false,
-        error: {
-          code: "MISSING_IDENTIFIER",
-          message: "Either URID or URID hash is required",
-        },
-      },
-      { status: 400 },
-    );
-  }
-
+export async function GET(request: NextRequest) {
   try {
-    const contractService = getContractService(
-      process.env.NODE_ENV === "production" ? "mainnet" : "testnet",
-    );
+    const { searchParams } = new URL(request.url);
+    const aadhaarNumber = searchParams.get("aadhaar");
 
-    let queryHash = uridHash;
-    if (urid && !uridHash) {
-      queryHash = URIDService.hashURID(urid);
-    }
-
-    if (!queryHash) {
+    if (!aadhaarNumber) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_IDENTIFIER",
-            message: "Invalid URID or URID hash format",
-          },
-        },
+        { error: "Aadhaar number is required" },
         { status: 400 },
       );
     }
 
-    // Get family info from contract
-    const familyInfo = await contractService.getFamilyInfo(queryHash);
-
-    if (!familyInfo) {
+    // Validate Aadhaar number format
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "FAMILY_NOT_FOUND",
-            message: "Family not found in registry",
-          },
-        },
-        { status: 404 },
+        { error: "Invalid Aadhaar number format" },
+        { status: 400 },
       );
     }
 
-    // Get local family data if available (without exposing sensitive data)
-    let localData = null;
-    if (urid) {
-      try {
-        const fullData = await URIDService.getFamilyData(urid);
-        if (fullData) {
-          // Return only non-sensitive data
-          localData = {
-            familySize: fullData.familySize,
-            location: fullData.location,
-            registrationTimestamp: fullData.registrationTimestamp,
-            verificationTimestamp: fullData.verificationTimestamp,
-            nationality: fullData.credentialSubject?.nationality,
-            minimumAge: fullData.credentialSubject?.minimumAge,
-          };
-        }
-      } catch (error) {
-        console.error("Failed to retrieve local family data:", error);
-        // Continue without local data
-      }
-    }
+    const contractService = getWorldChainContractService();
+    const uridHash =
+      contractService.constructor.generateURIDHash(aadhaarNumber);
+
+    // Check registration status
+    const [isRegistered, isValid, familyInfo] = await Promise.all([
+      contractService.isURIDRegistered(uridHash),
+      contractService.isValidFamily(uridHash),
+      contractService.getFamilyInfo(uridHash).catch(() => null),
+    ]);
 
     return NextResponse.json({
       success: true,
-      familyInfo,
-      localData,
-      timestamp: new Date().toISOString(),
+      data: {
+        uridHash,
+        isRegistered,
+        isValid,
+        familyInfo,
+        lastChecked: new Date().toISOString(),
+      },
     });
-  } catch (error) {
-    console.error("Family lookup error:", error);
+  } catch (error: any) {
+    console.error("Error checking family registration status:", error);
 
     return NextResponse.json(
       {
-        success: false,
-        error: {
-          code: "LOOKUP_FAILED",
-          message:
-            error instanceof Error
-              ? error.message
-              : "Internal server error during family lookup",
-        },
+        error: "Failed to check registration status",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 },
     );

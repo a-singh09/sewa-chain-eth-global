@@ -1,302 +1,214 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  DistributionRequest,
-  DistributionResponse,
-  Distribution,
-  AidType,
-  VolunteerSession,
-  EligibilityResult,
-  COOLDOWN_PERIODS,
-} from "@/types";
-import { URIDService } from "@/lib/urid-service";
-import { volunteerSessionStore } from "@/lib/volunteer-session-store";
+import { getWorldChainContractService } from "@/services/WorldChainContractService";
+import { WorldChainService } from "@/services/WorldChainService";
+import { getVolunteerSession } from "@/lib/volunteer-session";
+import { AidType } from "@/types";
 
-// In-memory storage for demo purposes
-const distributionRegistry = new Map<string, Distribution[]>(); // uridHash -> distributions
-const volunteerDistributions = new Map<string, Distribution[]>(); // volunteerNullifier -> distributions
+interface RecordDistributionRequest {
+  aadhaarNumber: string;
+  aidType: AidType;
+  quantity: number;
+  location: string;
+  notes?: string;
+}
 
+/**
+ * Record aid distribution on the World Chain blockchain
+ * POST /api/distributions/record
+ */
 export async function POST(request: NextRequest) {
   try {
-    const body: DistributionRequest = await request.json();
-    const { urid, aidType, quantity, location, volunteerSession } = body;
+    const body: RecordDistributionRequest = await request.json();
+    const { aadhaarNumber, aidType, quantity, location, notes } = body;
 
-    // Validate request data
-    if (!urid || !aidType || !quantity || !location || !volunteerSession) {
+    // Validate input
+    if (!aadhaarNumber || !aidType || !quantity || !location) {
       return NextResponse.json(
         {
-          success: false,
-          error: {
-            code: "MISSING_FIELDS",
-            message: "Missing required fields",
-          },
+          error:
+            "All fields (aadhaarNumber, aidType, quantity, location) are required",
         },
         { status: 400 },
       );
     }
 
-    // Validate URID format
-    if (!URIDService.validateURID(urid)) {
+    if (quantity <= 0 || quantity > 1000) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_URID",
-            message: "Invalid URID format",
-          },
-        },
+        { error: "Quantity must be between 1 and 1000" },
+        { status: 400 },
+      );
+    }
+
+    // Validate Aadhaar number format
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
+      return NextResponse.json(
+        { error: "Invalid Aadhaar number format" },
         { status: 400 },
       );
     }
 
     // Validate aid type
     if (!Object.values(AidType).includes(aidType)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_AID_TYPE",
-            message: "Invalid aid type",
-          },
-        },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Invalid aid type" }, { status: 400 });
     }
 
-    // Validate quantity
-    if (quantity <= 0 || quantity > 50) {
+    // Get volunteer session for authorization
+    const volunteerSession = getVolunteerSession();
+    if (!volunteerSession) {
       return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_QUANTITY",
-            message: "Quantity must be between 1 and 50",
-          },
-        },
-        { status: 400 },
-      );
-    }
-
-    // Verify volunteer session token
-    if (!volunteerSessionStore.isValidSession(volunteerSession)) {
-      console.error("Invalid or expired session:", volunteerSession);
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "INVALID_SESSION",
-            message: "Invalid volunteer session",
-          },
-        },
+        { error: "Volunteer authentication required" },
         { status: 401 },
       );
     }
 
-    const decodedSession = volunteerSessionStore.getSession(volunteerSession)!;
+    if (!volunteerSession.nullifierHash) {
+      return NextResponse.json(
+        { error: "Volunteer nullifier not available" },
+        { status: 401 },
+      );
+    }
 
-    // Check if family exists (URID validation)
-    const familyExists = await URIDService.checkURIDExists(urid);
-    if (!familyExists) {
+    // Get contract service
+    const contractService = getWorldChainContractService();
+
+    // Generate hashes
+    const uridHash =
+      contractService.constructor.generateURIDHash(aadhaarNumber);
+    const volunteerNullifier =
+      contractService.constructor.generateVolunteerNullifier(
+        volunteerSession.nullifierHash,
+      );
+
+    // Check if family is registered and active
+    const isValidFamily = await contractService.isValidFamily(uridHash);
+    if (!isValidFamily) {
       return NextResponse.json(
         {
-          success: false,
-          error: {
-            code: "FAMILY_NOT_FOUND",
-            message: "Family not found. Please verify the QR code is correct.",
-          },
+          error: "Family not found or inactive",
+          uridHash,
+          suggestion: "Please register the family first",
         },
         { status: 404 },
       );
     }
 
-    // Generate URID hash for storage
-    const uridHash = URIDService.hashURID(urid);
-
-    // Check family eligibility for this aid type
-    const eligibility = await checkFamilyEligibility(uridHash, aidType);
+    // Check eligibility for this aid type
+    const eligibility = await contractService.checkEligibility(
+      uridHash,
+      aidType,
+    );
     if (!eligibility.eligible) {
-      const timeRemaining = Math.ceil(
-        eligibility.timeUntilEligible / (1000 * 60 * 60),
-      ); // hours
+      const hoursRemaining = Math.ceil(eligibility.timeUntilEligible / 3600);
       return NextResponse.json(
         {
-          success: false,
-          error: {
-            code: "NOT_ELIGIBLE",
-            message: `Family is not eligible for ${aidType}. Please wait ${timeRemaining} hours.`,
-          },
+          error: `Family not eligible for ${aidType}`,
+          timeUntilEligible: eligibility.timeUntilEligible,
+          hoursRemaining,
+          suggestion: `Please wait ${hoursRemaining} hours before distributing ${aidType} aid`,
         },
-        { status: 400 },
+        { status: 409 },
       );
     }
 
-    // Create distribution record
-    const distributionId = generateDistributionId();
-    const distribution: Distribution = {
-      id: distributionId,
-      uridHash,
-      volunteerNullifier: decodedSession.nullifierHash,
-      aidType,
-      quantity,
-      location: location.trim(),
-      timestamp: Date.now(),
-      confirmed: true, // For demo purposes, mark as confirmed immediately
-    };
-
-    // Store distribution record
-    const familyDistributions = distributionRegistry.get(uridHash) || [];
-    familyDistributions.push(distribution);
-    distributionRegistry.set(uridHash, familyDistributions);
-
-    // Store volunteer distribution record
-    const volunteerDists =
-      volunteerDistributions.get(decodedSession.nullifierHash) || [];
-    volunteerDists.push(distribution);
-    volunteerDistributions.set(decodedSession.nullifierHash, volunteerDists);
-
-    console.log("Distribution recorded:", {
-      distributionId,
-      uridHash: uridHash.substring(0, 8) + "...",
-      volunteerNullifier: decodedSession.nullifierHash.substring(0, 8) + "...",
-      aidType,
-      quantity,
-      location,
-      timestamp: new Date(distribution.timestamp).toISOString(),
-    });
-
-    // Return success response
-    const response: DistributionResponse = {
+    // For API route, we return the preparation data
+    // The actual blockchain transaction will be handled by the frontend using MiniKit
+    return NextResponse.json({
       success: true,
-      distributionId,
-      // For demo purposes, we'll simulate a transaction hash
-      transactionHash: `0x${Math.random().toString(16).substring(2, 66)}`,
-    };
-
-    return NextResponse.json(response, { status: 201 });
-  } catch (error) {
-    console.error("Distribution recording error:", error);
+      message: "Distribution recording prepared",
+      data: {
+        uridHash,
+        volunteerNullifier,
+        aidType,
+        quantity,
+        location,
+        notes,
+        contractAddress: process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS,
+        eligibility,
+        preparationTime: new Date().toISOString(),
+        volunteerInfo: {
+          id: volunteerSession.volunteerId,
+          walletAddress: volunteerSession.walletAddress,
+        },
+      },
+    });
+  } catch (error: any) {
+    console.error("Error in distribution recording API:", error);
 
     return NextResponse.json(
       {
-        success: false,
-        error: {
-          code: "INTERNAL_ERROR",
-          message: "Failed to record distribution. Please try again.",
-        },
+        error: "Internal server error",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 },
     );
   }
 }
 
-// Check family eligibility for aid type based on cooldown periods
-async function checkFamilyEligibility(
-  uridHash: string,
-  aidType: AidType,
-): Promise<EligibilityResult> {
-  const familyDistributions = distributionRegistry.get(uridHash) || [];
-
-  // Find the most recent distribution of this aid type
-  const recentDistributions = familyDistributions
-    .filter((dist) => dist.aidType === aidType && dist.confirmed)
-    .sort((a, b) => b.timestamp - a.timestamp);
-
-  if (recentDistributions.length === 0) {
-    // No previous distributions of this type, family is eligible
-    return {
-      eligible: true,
-      timeUntilEligible: 0,
-    };
-  }
-
-  const lastDistribution = recentDistributions[0];
-  const cooldownPeriod = COOLDOWN_PERIODS[aidType];
-  const timeSinceLastDistribution = Date.now() - lastDistribution.timestamp;
-
-  if (timeSinceLastDistribution >= cooldownPeriod) {
-    // Cooldown period has passed, family is eligible
-    return {
-      eligible: true,
-      timeUntilEligible: 0,
-      lastDistribution: {
-        timestamp: lastDistribution.timestamp,
-        quantity: lastDistribution.quantity,
-        location: lastDistribution.location,
-      },
-    };
-  } else {
-    // Still in cooldown period
-    const timeUntilEligible = cooldownPeriod - timeSinceLastDistribution;
-    return {
-      eligible: false,
-      timeUntilEligible,
-      lastDistribution: {
-        timestamp: lastDistribution.timestamp,
-        quantity: lastDistribution.quantity,
-        location: lastDistribution.location,
-      },
-    };
-  }
-}
-
-// Generate unique distribution ID
-function generateDistributionId(): string {
-  const timestamp = Date.now().toString(36);
-  const random = Math.random().toString(36).substring(2, 8);
-  return `dist_${timestamp}_${random}`;
-}
-
-// GET endpoint to retrieve distribution history for a family
+/**
+ * Get distribution eligibility
+ * GET /api/distributions/record?aadhaar=123456789012&aidType=FOOD
+ */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const urid = searchParams.get("urid");
-    const volunteerSession = searchParams.get("volunteerSession");
+    const aadhaarNumber = searchParams.get("aadhaar");
+    const aidType = searchParams.get("aidType") as AidType;
 
-    if (!urid || !volunteerSession) {
+    if (!aadhaarNumber || !aidType) {
       return NextResponse.json(
-        { error: "Missing urid or volunteerSession parameter" },
+        { error: "Aadhaar number and aid type are required" },
         { status: 400 },
       );
     }
 
-    // Verify volunteer session token
-    if (!volunteerSessionStore.isValidSession(volunteerSession)) {
-      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
-    }
-
-    // Validate URID format
-    if (!URIDService.validateURID(urid)) {
+    // Validate Aadhaar number format
+    if (!/^\d{12}$/.test(aadhaarNumber)) {
       return NextResponse.json(
-        { error: "Invalid URID format" },
+        { error: "Invalid Aadhaar number format" },
         { status: 400 },
       );
     }
 
-    const uridHash = URIDService.hashURID(urid);
-    const distributions = distributionRegistry.get(uridHash) || [];
+    // Validate aid type
+    if (!Object.values(AidType).includes(aidType)) {
+      return NextResponse.json({ error: "Invalid aid type" }, { status: 400 });
+    }
 
-    // Sort by timestamp (most recent first)
-    const sortedDistributions = distributions
-      .sort((a, b) => b.timestamp - a.timestamp)
-      .map((dist) => ({
-        ...dist,
-        // Mask volunteer nullifier for privacy
-        volunteerNullifier: dist.volunteerNullifier.substring(0, 8) + "...",
-      }));
+    const contractService = getWorldChainContractService();
+    const uridHash =
+      contractService.constructor.generateURIDHash(aadhaarNumber);
+
+    // Check family validity and eligibility
+    const [isValidFamily, eligibility, distributionHistory] = await Promise.all(
+      [
+        contractService.isValidFamily(uridHash),
+        contractService.checkEligibility(uridHash, aidType),
+        contractService.getDistributionHistory(uridHash).catch(() => []),
+      ],
+    );
 
     return NextResponse.json({
       success: true,
-      distributions: sortedDistributions,
-      totalCount: sortedDistributions.length,
+      data: {
+        uridHash,
+        isValidFamily,
+        eligibility,
+        distributionHistory,
+        aidType,
+        lastChecked: new Date().toISOString(),
+      },
     });
-  } catch (error) {
-    console.error("Distribution history retrieval error:", error);
+  } catch (error: any) {
+    console.error("Error checking distribution eligibility:", error);
+
     return NextResponse.json(
-      { error: "Failed to retrieve distribution history" },
+      {
+        error: "Failed to check eligibility",
+        details:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      },
       { status: 500 },
     );
   }
 }
-
-// Export functions for testing and other modules
-export { checkFamilyEligibility, distributionRegistry, volunteerDistributions };

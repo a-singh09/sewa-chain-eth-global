@@ -1,13 +1,13 @@
 // Smart Contract Service for SewaChain
 import {
-  ethers,
   JsonRpcProvider,
   Contract,
   Wallet,
   TransactionReceipt,
   formatEther,
+  BaseContract,
 } from "ethers";
-import type {
+import {
   IContractService,
   TransactionResult,
   Family,
@@ -21,19 +21,15 @@ import type {
   AidType,
   VerificationLevel,
 } from "@/types";
-import {
-  getContractConfig,
-  CONTRACT_LIMITS,
-  COOLDOWN_PERIODS,
-} from "@/config/contracts";
+import { getContractConfig, CONTRACT_LIMITS } from "@/config/contracts";
 import URIDRegistryABI from "@/abi/URIDRegistry.json";
 import DistributionTrackerABI from "@/abi/DistributionTracker.json";
 
 export class ContractService implements IContractService {
   private provider: JsonRpcProvider;
   private signer?: Wallet;
-  private uridRegistry: Contract;
-  private distributionTracker: Contract;
+  private uridRegistry: BaseContract;
+  private distributionTracker: BaseContract;
   private config: ReturnType<typeof getContractConfig>;
 
   constructor(network: "testnet" | "mainnet" = "testnet") {
@@ -97,7 +93,7 @@ export class ContractService implements IContractService {
         uridHash,
         familySize,
       );
-      const gasLimit = gasEstimate + gasEstimate / 5n; // Add 20% buffer
+      const gasLimit = gasEstimate + gasEstimate / BigInt(5); // Add 20% buffer
 
       // Execute transaction
       const tx = await this.uridRegistry.registerFamily(uridHash, familySize, {
@@ -218,7 +214,7 @@ export class ContractService implements IContractService {
           params.quantity,
           params.location,
         );
-      const gasLimit = gasEstimate + gasEstimate / 5n; // Add 20% buffer
+      const gasLimit = gasEstimate + gasEstimate / BigInt(5); // Add 20% buffer
 
       // Execute transaction
       const tx = await this.distributionTracker.recordDistribution(
@@ -335,13 +331,13 @@ export class ContractService implements IContractService {
 
       return {
         distributionCount: Number(distributionCount),
-        verificationLevel: VerificationLevel.Orb, // Default for volunteers
+        verificationLevel: "orb" as VerificationLevel, // Default for volunteers
       };
     } catch (error) {
       console.error("Error getting volunteer stats:", error);
       return {
         distributionCount: 0,
-        verificationLevel: VerificationLevel.Device,
+        verificationLevel: "device" as VerificationLevel,
       };
     }
   }
@@ -358,7 +354,7 @@ export class ContractService implements IContractService {
   private handleTransactionError(error: any): TransactionResult {
     console.error("Contract transaction error:", error);
 
-    let errorType: ContractErrorType = ContractErrorType.NETWORK_ERROR;
+    let errorType = ContractErrorType.NETWORK_ERROR;
     let message = "Transaction failed";
 
     if (error.code === "INSUFFICIENT_FUNDS") {
@@ -393,7 +389,7 @@ export class ContractService implements IContractService {
   }
 
   private getAidTypeValue(aidType: AidType): number {
-    const aidTypeMap: Record<AidType, number> = {
+    const aidTypeMap = {
       [AidType.FOOD]: 0,
       [AidType.MEDICAL]: 1,
       [AidType.SHELTER]: 2,
@@ -405,7 +401,7 @@ export class ContractService implements IContractService {
   }
 
   private getAidTypeName(aidTypeValue: number): AidType {
-    const aidTypeMap: Record<number, AidType> = {
+    const aidTypeMap = {
       0: AidType.FOOD,
       1: AidType.MEDICAL,
       2: AidType.SHELTER,

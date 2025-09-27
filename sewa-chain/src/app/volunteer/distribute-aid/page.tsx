@@ -10,6 +10,7 @@ import {
   UserGroupIcon,
   MapPinIcon,
 } from "@heroicons/react/24/outline";
+import { Navbar } from "@/components/Navbar";
 import { QRScanner } from "@/components/QRScanner";
 import { AidTypeSelector } from "@/components/AidTypeSelector";
 import { VolunteerVerification } from "@/components/VolunteerVerification";
@@ -306,6 +307,7 @@ export default function DistributeAidPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <Navbar title="Distribute Aid" showBackButton={true} />
       <div className="max-w-2xl mx-auto p-4">
         {/* Header */}
         <div className="bg-white rounded-lg shadow-sm p-6 mb-6">

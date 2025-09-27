@@ -15,6 +15,8 @@ export async function GET(req: NextRequest) {
       debug: {
         totalActiveSessions: activeSessions.length,
         expiredSessionsCleanedUp: cleanedCount,
+        globalStoreExists: !!globalThis.__volunteerSessions,
+        globalStoreSize: globalThis.__volunteerSessions?.size || 0,
         sessions: activeSessions.map((session) => ({
           volunteerId: session.volunteerId,
           tokenPreview: session.sessionToken.substring(0, 15) + "...",
