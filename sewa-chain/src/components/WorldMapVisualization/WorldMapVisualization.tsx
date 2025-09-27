@@ -49,13 +49,13 @@ export function WorldMapVisualization({
       const isMobile = window.innerWidth <= 768;
       const containerWidth =
         document.querySelector(".map-container")?.clientWidth ||
-        window.innerWidth;
+        window.innerWidth - 32;
       const newWidth = Math.min(
-        containerWidth - 32,
-        width || (isMobile ? containerWidth - 32 : 800),
+        containerWidth,
+        width || (isMobile ? containerWidth : 800),
       );
-      const aspectRatio = isMobile ? 0.6 : 0.5;
-      const newHeight = Math.max(newWidth * aspectRatio, isMobile ? 250 : 400);
+      const aspectRatio = isMobile ? 0.65 : 0.5;
+      const newHeight = Math.max(newWidth * aspectRatio, isMobile ? 280 : 400);
 
       setDimensions({
         width: newWidth,
@@ -460,8 +460,17 @@ export function WorldMapVisualization({
 
   const getSupportSize = (value: number, zoom: number) => {
     const baseSize = value >= 80 ? 8 : value >= 50 ? 6 : 4;
-    const zoomMultiplier = Math.max(1, zoom / 2);
-    return Math.min(baseSize * zoomMultiplier, 16);
+    // Much more conservative zoom scaling to prevent oversized circles
+    const zoomMultiplier = Math.max(1, Math.min(1 + (zoom - 1) * 0.3, 1.8));
+    const isMobile = dimensions.width <= 640;
+    const mobileAdjustment = isMobile ? 0.8 : 1;
+    return Math.max(
+      3,
+      Math.min(
+        baseSize * zoomMultiplier * mobileAdjustment,
+        isMobile ? 10 : 12,
+      ),
+    );
   };
 
   const handleMoveEnd = (position: any) => {
@@ -478,6 +487,20 @@ export function WorldMapVisualization({
 
   const zoomToPunjab = () => {
     setPosition({ coordinates: [75.5, 31], zoom: 8 });
+  };
+
+  const zoomIn = () => {
+    setPosition((prev) => ({
+      ...prev,
+      zoom: Math.min(prev.zoom * 1.5, 8),
+    }));
+  };
+
+  const zoomOut = () => {
+    setPosition((prev) => ({
+      ...prev,
+      zoom: Math.max(prev.zoom / 1.5, 0.8),
+    }));
   };
 
   useEffect(() => {
@@ -501,7 +524,55 @@ export function WorldMapVisualization({
           </div>
         )}
 
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg overflow-hidden border shadow-lg">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-lg overflow-hidden border shadow-lg relative">
+          {/* Mobile Zoom Controls */}
+          <div className="absolute top-2 right-2 z-10 flex flex-col gap-1 md:hidden">
+            <button
+              onClick={zoomIn}
+              className="w-8 h-8 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+              aria-label="Zoom in"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={zoomOut}
+              className="w-8 h-8 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-700 hover:bg-white transition-colors"
+              aria-label="Zoom out"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18 12H6"
+                />
+              </svg>
+            </button>
+            <button
+              onClick={resetView}
+              className="w-8 h-8 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-700 hover:bg-white transition-colors text-xs"
+              aria-label="Reset view"
+            >
+              🌍
+            </button>
+          </div>
           <ComposableMap
             width={dimensions.width}
             height={dimensions.height}
@@ -515,8 +586,8 @@ export function WorldMapVisualization({
               zoom={position.zoom}
               center={position.coordinates}
               onMoveEnd={handleMoveEnd}
-              maxZoom={10}
-              minZoom={0.5}
+              maxZoom={8}
+              minZoom={0.8}
             >
               <Geographies geography={geoUrl}>
                 {({ geographies }) =>
@@ -538,52 +609,96 @@ export function WorldMapVisualization({
               </Geographies>
 
               {/* Render support markers */}
-              {getCurrentData().map((location, index) => (
-                <Marker key={index} coordinates={location.coordinates}>
-                  <g>
-                    <circle
-                      r={getSupportSize(location.value, position.zoom)}
-                      fill={getSupportColor(
-                        location.supportLevel,
-                        showVolunteerData && location.state === "Punjab",
-                      )}
-                      fillOpacity={0.8}
-                      stroke="#fff"
-                      strokeWidth={1}
-                      style={{
-                        cursor: "pointer",
-                        filter:
-                          showVolunteerData && location.state === "Punjab"
+              {getCurrentData().map((location, index) => {
+                const markerSize = getSupportSize(
+                  location.value,
+                  position.zoom,
+                );
+                const isMobile = dimensions.width <= 640;
+                const showLabel = false; // Disabled city labels for cleaner appearance
+                const isVolunteerArea =
+                  showVolunteerData && location.state === "Punjab";
+
+                return (
+                  <Marker key={index} coordinates={location.coordinates}>
+                    <g>
+                      {/* Main circle */}
+                      <circle
+                        r={markerSize}
+                        fill={getSupportColor(
+                          location.supportLevel,
+                          isVolunteerArea,
+                        )}
+                        fillOpacity={0.8}
+                        stroke="#fff"
+                        strokeWidth={position.zoom > 4 ? 2 : 1}
+                        style={{
+                          cursor: "pointer",
+                          filter: isVolunteerArea
                             ? "drop-shadow(0 0 8px rgba(124, 58, 237, 0.6))"
                             : "drop-shadow(0 2px 4px rgba(0,0,0,0.2))",
-                      }}
-                    />
-                    {showVolunteerData && location.state === "Punjab" && (
-                      <text
-                        textAnchor="middle"
-                        y={-getSupportSize(location.value, position.zoom) - 8}
-                        fontSize="10"
-                        fill="#7C3AED"
-                        fontWeight="bold"
-                      >
-                        ⭐
-                      </text>
-                    )}
-                    {position.zoom > 3 && (
-                      <text
-                        textAnchor="middle"
-                        y={getSupportSize(location.value, position.zoom) + 15}
-                        fontSize="10"
-                        fill="#374151"
-                        fontWeight="500"
-                        style={{ pointerEvents: "none" }}
-                      >
-                        {location.name}
-                      </text>
-                    )}
-                  </g>
-                </Marker>
-              ))}
+                        }}
+                      />
+
+                      {/* Inner ring for high-impact areas */}
+                      {location.supportLevel === "high" && (
+                        <circle
+                          r={markerSize * 0.6}
+                          fill="none"
+                          stroke="#fff"
+                          strokeWidth={1}
+                          fillOpacity={0.3}
+                        />
+                      )}
+
+                      {/* Volunteer star indicator */}
+                      {isVolunteerArea && (
+                        <text
+                          textAnchor="middle"
+                          y={-8}
+                          fontSize={isMobile ? "8" : "10"}
+                          fill="#7C3AED"
+                          fontWeight="bold"
+                        >
+                          ⭐
+                        </text>
+                      )}
+
+                      {/* Location labels disabled for cleaner appearance */}
+                      {/* {showLabel && (
+                        <text
+                          textAnchor="middle"
+                          y={markerSize + 12}
+                          fontSize={isMobile ? "8" : "10"}
+                          fill="#374151"
+                          fontWeight="500"
+                          style={{
+                            pointerEvents: "none",
+                            textShadow: "1px 1px 2px rgba(255,255,255,0.8)",
+                          }}
+                        >
+                          {location.name}
+                        </text>
+                      )} */}
+
+                      {/* Value indicator for high zoom */}
+                      {position.zoom > 5 &&
+                        location.supportLevel === "high" && (
+                          <text
+                            textAnchor="middle"
+                            y={3}
+                            fontSize="6"
+                            fill="#fff"
+                            fontWeight="bold"
+                            style={{ pointerEvents: "none" }}
+                          >
+                            {location.value}
+                          </text>
+                        )}
+                    </g>
+                  </Marker>
+                );
+              })}
             </ZoomableGroup>
           </ComposableMap>
         </div>
@@ -617,17 +732,17 @@ export function WorldMapVisualization({
       </div> */}
 
       {/* Legend */}
-      <div className="bg-white rounded-lg p-4 shadow-lg border">
-        <h4 className="font-semibold text-gray-800 mb-3 text-base">
+      <div className="bg-white rounded-lg p-3 sm:p-4 shadow-lg border">
+        <h4 className="font-semibold text-gray-800 mb-2 sm:mb-3 text-sm sm:text-base">
           Aid Distribution Impact Legend
         </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
           <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded-full bg-green-500 flex-shrink-0"></div>
+            <div className="w-3 h-3 sm:w-4 sm:h-4 rounded-full bg-green-500 flex-shrink-0"></div>
             <span className="text-gray-700">High Impact (80%+ support)</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-3 h-3 rounded-full bg-amber-500 flex-shrink-0"></div>
+            <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500 flex-shrink-0"></div>
             <span className="text-gray-700">
               Medium Impact (50-79% support)
             </span>
@@ -638,16 +753,17 @@ export function WorldMapVisualization({
           </div>
           {showVolunteerData && (
             <div className="flex items-center space-x-2 col-span-full pt-2 border-t border-gray-200">
-              <div className="w-3 h-3 rounded-full bg-purple-600 flex-shrink-0"></div>
-              <span className="text-purple-700 font-medium">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-purple-600 flex-shrink-0"></div>
+              <span className="text-purple-700 font-medium text-xs sm:text-sm">
                 ⭐ Your Volunteer Impact Areas
               </span>
             </div>
           )}
         </div>
-        <p className="text-xs text-gray-600 mt-3">
-          Use the navigation buttons above to explore different regions. Click
-          on circles for detailed information.
+        <p className="text-xs text-gray-600 mt-2 sm:mt-3">
+          {dimensions.width <= 640
+            ? "Pinch to zoom or use the controls above to explore regions. Tap circles for details."
+            : "Use the navigation buttons above to explore different regions. Click on circles for detailed information."}
         </p>
       </div>
     </div>
