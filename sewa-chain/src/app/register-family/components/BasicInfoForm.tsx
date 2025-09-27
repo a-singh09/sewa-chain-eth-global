@@ -1,73 +1,145 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { Button, Input, Select } from '@worldcoin/mini-apps-ui-kit-react';
-import { 
-  UserIcon, 
-  MapPinIcon, 
-  PhoneIcon, 
-  UsersIcon 
-} from '@heroicons/react/24/outline';
-import { BasicInfoFormProps, FamilyRegistrationData } from '@/types';
+import React, { useState, useEffect, useCallback } from "react";
+import { Button, Input, Select } from "@worldcoin/mini-apps-ui-kit-react";
+import {
+  UserIcon,
+  MapPinIcon,
+  PhoneIcon,
+  UsersIcon,
+  ExclamationTriangleIcon,
+  InformationCircleIcon,
+} from "@heroicons/react/24/outline";
+import { BasicInfoFormProps, FamilyRegistrationData } from "@/types";
 
 const INDIAN_STATES = [
-  'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-  'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-  'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-  'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-  'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
-  'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Puducherry', 'Chandigarh',
-  'Andaman and Nicobar Islands', 'Dadra and Nagar Haveli and Daman and Diu',
-  'Lakshadweep'
+  "Andhra Pradesh",
+  "Arunachal Pradesh",
+  "Assam",
+  "Bihar",
+  "Chhattisgarh",
+  "Goa",
+  "Gujarat",
+  "Haryana",
+  "Himachal Pradesh",
+  "Jharkhand",
+  "Karnataka",
+  "Kerala",
+  "Madhya Pradesh",
+  "Maharashtra",
+  "Manipur",
+  "Meghalaya",
+  "Mizoram",
+  "Nagaland",
+  "Odisha",
+  "Punjab",
+  "Rajasthan",
+  "Sikkim",
+  "Tamil Nadu",
+  "Telangana",
+  "Tripura",
+  "Uttar Pradesh",
+  "Uttarakhand",
+  "West Bengal",
+  "Delhi",
+  "Jammu and Kashmir",
+  "Ladakh",
+  "Puducherry",
+  "Chandigarh",
+  "Andaman and Nicobar Islands",
+  "Dadra and Nagar Haveli and Daman and Diu",
+  "Lakshadweep",
 ];
 
 export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
   const [formData, setFormData] = useState<FamilyRegistrationData>({
-    headOfFamily: initialData?.headOfFamily || '',
+    headOfFamily: initialData?.headOfFamily || "",
     familySize: initialData?.familySize || 1,
-    location: initialData?.location || '',
-    contactNumber: initialData?.contactNumber || ''
+    location: initialData?.location || "",
+    contactNumber: initialData?.contactNumber || "",
   });
-  
-  const [errors, setErrors] = useState<Partial<Record<keyof FamilyRegistrationData, string>>>({});
+
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof FamilyRegistrationData, string>>
+  >({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validateForm = (): boolean => {
+  const validateField = (
+    field: keyof FamilyRegistrationData,
+    value: string | number,
+  ): string | null => {
+    switch (field) {
+      case "headOfFamily":
+        const name = (value as string).trim();
+        if (!name) return "Head of family name is required";
+        if (name.length < 2) return "Name must be at least 2 characters long";
+        if (name.length > 100) return "Name must be less than 100 characters";
+        if (!/^[a-zA-Z\s.''-]+$/.test(name)) {
+          return "Name can only contain letters, spaces, periods, apostrophes, and hyphens";
+        }
+        return null;
+
+      case "familySize":
+        const size = value as number;
+        if (!size || size < 1) return "Family size must be at least 1";
+        if (size > 50) return "Family size cannot exceed 50 members";
+        if (!Number.isInteger(size))
+          return "Family size must be a whole number";
+        return null;
+
+      case "location":
+        if (!(value as string).trim()) return "Location is required";
+        return null;
+
+      case "contactNumber":
+        const phone = (value as string).trim();
+        if (!phone) return "Contact number is required";
+
+        // Remove all non-digit characters for validation
+        const digitsOnly = phone.replace(/\D/g, "");
+
+        // Check for Indian mobile number patterns
+        if (phone.startsWith("+91")) {
+          if (digitsOnly.length !== 12)
+            return "Indian mobile number should have 10 digits after +91";
+          if (!/^[6-9]/.test(digitsOnly.slice(2)))
+            return "Indian mobile number should start with 6, 7, 8, or 9";
+        } else if (phone.startsWith("91") && digitsOnly.length === 12) {
+          if (!/^[6-9]/.test(digitsOnly.slice(2)))
+            return "Indian mobile number should start with 6, 7, 8, or 9";
+        } else if (digitsOnly.length === 10) {
+          if (!/^[6-9]/.test(digitsOnly))
+            return "Indian mobile number should start with 6, 7, 8, or 9";
+        } else if (digitsOnly.length < 10 || digitsOnly.length > 15) {
+          return "Contact number should be between 10-15 digits";
+        }
+
+        return null;
+
+      default:
+        return null;
+    }
+  };
+
+  const validateForm = useCallback((): boolean => {
     const newErrors: Partial<Record<keyof FamilyRegistrationData, string>> = {};
 
-    // Head of Family validation
-    if (!formData.headOfFamily.trim()) {
-      newErrors.headOfFamily = 'Head of family name is required';
-    } else if (formData.headOfFamily.trim().length < 2) {
-      newErrors.headOfFamily = 'Name must be at least 2 characters long';
-    } else if (!/^[a-zA-Z\s.]+$/.test(formData.headOfFamily.trim())) {
-      newErrors.headOfFamily = 'Name can only contain letters, spaces, and periods';
-    }
-
-    // Family Size validation
-    if (formData.familySize < 1 || formData.familySize > 20) {
-      newErrors.familySize = 'Family size must be between 1 and 20';
-    }
-
-    // Location validation
-    if (!formData.location.trim()) {
-      newErrors.location = 'Location is required';
-    }
-
-    // Contact Number validation
-    if (!formData.contactNumber.trim()) {
-      newErrors.contactNumber = 'Contact number is required';
-    } else if (!/^[+]?[\d\s\-()]{10,15}$/.test(formData.contactNumber.trim())) {
-      newErrors.contactNumber = 'Please enter a valid contact number (10-15 digits)';
-    }
+    // Validate all fields
+    Object.keys(formData).forEach((key) => {
+      const field = key as keyof FamilyRegistrationData;
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
+      }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -76,29 +148,47 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
 
     try {
       // Add a small delay to show loading state
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
       onNext(formData);
     } catch (error) {
-      console.error('Form submission error:', error);
+      console.error("Form submission error:", error);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const updateField = (field: keyof FamilyRegistrationData, value: string | number) => {
-    setFormData(prev => ({
+  const updateField = (
+    field: keyof FamilyRegistrationData,
+    value: string | number,
+  ) => {
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
-    
-    // Clear error for this field when user starts typing
-    if (errors[field]) {
-      setErrors(prev => ({
-        ...prev,
-        [field]: undefined
-      }));
-    }
+
+    // Real-time validation for better UX
+    const error = validateField(field, value);
+    setErrors((prev) => ({
+      ...prev,
+      [field]: error || undefined,
+    }));
   };
+
+  // Add debounced validation for better performance
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (
+        formData.headOfFamily ||
+        formData.contactNumber ||
+        formData.location
+      ) {
+        // Only validate if user has started typing
+        validateForm();
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [formData, validateForm]);
 
   return (
     <div className="space-y-6">
@@ -112,67 +202,117 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-6" noValidate>
         {/* Head of Family */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="headOfFamily"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Head of Family Name *
           </label>
           <div className="relative">
-            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
+              id="headOfFamily"
+              name="headOfFamily"
               type="text"
               value={formData.headOfFamily}
-              onChange={(e) => updateField('headOfFamily', e.target.value)}
+              onChange={(e) => updateField("headOfFamily", e.target.value)}
               placeholder="Enter full name"
-              className={`pl-10 min-h-[44px] ${errors.headOfFamily ? 'border-red-300 focus:ring-red-500' : ''}`}
+              className={`pl-10 min-h-[48px] text-base ${
+                errors.headOfFamily
+                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                  : "focus:ring-blue-500 focus:border-blue-500"
+              }`}
               autoComplete="name"
               disabled={isSubmitting}
+              aria-invalid={!!errors.headOfFamily}
+              aria-describedby={
+                errors.headOfFamily ? "headOfFamily-error" : undefined
+              }
             />
           </div>
           {errors.headOfFamily && (
-            <p className="mt-1 text-sm text-red-600">{errors.headOfFamily}</p>
+            <div className="mt-2 flex items-start">
+              <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5 mr-1 flex-shrink-0" />
+              <p id="headOfFamily-error" className="text-sm text-red-600">
+                {errors.headOfFamily}
+              </p>
+            </div>
           )}
         </div>
 
         {/* Family Size */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="familySize"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Family Size *
           </label>
           <div className="relative">
-            <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
+              id="familySize"
+              name="familySize"
               type="number"
               min="1"
-              max="20"
+              max="50"
+              step="1"
               value={formData.familySize}
-              onChange={(e) => updateField('familySize', parseInt(e.target.value) || 1)}
-              className={`pl-10 min-h-[44px] ${errors.familySize ? 'border-red-300 focus:ring-red-500' : ''}`}
+              onChange={(e) =>
+                updateField("familySize", parseInt(e.target.value) || 1)
+              }
+              className={`pl-10 min-h-[48px] text-base ${
+                errors.familySize
+                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                  : "focus:ring-blue-500 focus:border-blue-500"
+              }`}
               disabled={isSubmitting}
+              aria-invalid={!!errors.familySize}
+              aria-describedby="familySize-help familySize-error"
             />
           </div>
           {errors.familySize && (
-            <p className="mt-1 text-sm text-red-600">{errors.familySize}</p>
+            <div className="mt-2 flex items-start">
+              <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5 mr-1 flex-shrink-0" />
+              <p id="familySize-error" className="text-sm text-red-600">
+                {errors.familySize}
+              </p>
+            </div>
           )}
-          <p className="mt-1 text-xs text-gray-500">
-            Number of family members living together
-          </p>
+          <div className="mt-2 flex items-start">
+            <InformationCircleIcon className="w-4 h-4 text-blue-500 mt-0.5 mr-1 flex-shrink-0" />
+            <p id="familySize-help" className="text-xs text-gray-600">
+              Number of family members living together (including children and
+              elderly)
+            </p>
+          </div>
         </div>
 
         {/* Location */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="location"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Location (State/District) *
           </label>
           <div className="relative">
-            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10" />
+            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
             <Select
               value={formData.location}
-              onValueChange={(value) => updateField('location', value)}
+              onValueChange={(value) => updateField("location", value)}
               placeholder="Select your state"
-              className={`pl-10 min-h-[44px] ${errors.location ? 'border-red-300' : ''}`}
+              className={`pl-10 min-h-[48px] text-base ${
+                errors.location
+                  ? "border-red-300 focus:ring-red-500"
+                  : "focus:ring-blue-500"
+              }`}
               disabled={isSubmitting}
+              aria-invalid={!!errors.location}
+              aria-describedby={errors.location ? "location-error" : undefined}
             >
               {INDIAN_STATES.map((state) => (
                 <Select.Item key={state} value={state}>
@@ -182,57 +322,134 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
             </Select>
           </div>
           {errors.location && (
-            <p className="mt-1 text-sm text-red-600">{errors.location}</p>
+            <div className="mt-2 flex items-start">
+              <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5 mr-1 flex-shrink-0" />
+              <p id="location-error" className="text-sm text-red-600">
+                {errors.location}
+              </p>
+            </div>
           )}
         </div>
 
         {/* Contact Number */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label
+            htmlFor="contactNumber"
+            className="block text-sm font-medium text-gray-700 mb-2"
+          >
             Contact Number *
           </label>
           <div className="relative">
-            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
+              id="contactNumber"
+              name="contactNumber"
               type="tel"
               value={formData.contactNumber}
-              onChange={(e) => updateField('contactNumber', e.target.value)}
+              onChange={(e) => updateField("contactNumber", e.target.value)}
               placeholder="+91 XXXXXXXXXX"
-              className={`pl-10 min-h-[44px] ${errors.contactNumber ? 'border-red-300 focus:ring-red-500' : ''}`}
+              className={`pl-10 min-h-[48px] text-base ${
+                errors.contactNumber
+                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                  : "focus:ring-blue-500 focus:border-blue-500"
+              }`}
               autoComplete="tel"
               disabled={isSubmitting}
+              aria-invalid={!!errors.contactNumber}
+              aria-describedby="contactNumber-help contactNumber-error"
             />
           </div>
           {errors.contactNumber && (
-            <p className="mt-1 text-sm text-red-600">{errors.contactNumber}</p>
+            <div className="mt-2 flex items-start">
+              <ExclamationTriangleIcon className="w-4 h-4 text-red-500 mt-0.5 mr-1 flex-shrink-0" />
+              <p id="contactNumber-error" className="text-sm text-red-600">
+                {errors.contactNumber}
+              </p>
+            </div>
           )}
-          <p className="mt-1 text-xs text-gray-500">
-            Include country code (e.g., +91 for India)
-          </p>
+          <div className="mt-2 flex items-start">
+            <InformationCircleIcon className="w-4 h-4 text-blue-500 mt-0.5 mr-1 flex-shrink-0" />
+            <p id="contactNumber-help" className="text-xs text-gray-600">
+              Include country code (e.g., +91 for India). This will be used for
+              emergency contact.
+            </p>
+          </div>
         </div>
 
-        <Button 
-          type="submit" 
-          variant="primary" 
-          className="w-full min-h-[44px] touch-manipulation"
-          disabled={isSubmitting}
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full min-h-[52px] touch-manipulation text-base font-medium"
+          disabled={
+            isSubmitting ||
+            Object.keys(errors).some(
+              (key) => errors[key as keyof FamilyRegistrationData],
+            )
+          }
         >
           {isSubmitting ? (
             <div className="flex items-center justify-center">
-              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-3" />
               Processing...
             </div>
           ) : (
-            'Continue to Aadhaar Verification'
+            "Continue to Aadhaar Verification"
           )}
         </Button>
       </form>
 
-      {/* Accessibility note */}
-      <div className="text-center">
-        <p className="text-xs text-gray-500">
-          * Required fields. Your information is secured with end-to-end encryption.
-        </p>
+      {/* Form Progress and Security Note */}
+      <div className="space-y-3">
+        {/* Form Completion Indicator */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-blue-700 font-medium">Form Progress</span>
+            <span className="text-blue-600">
+              {
+                Object.values(formData).filter((value) =>
+                  typeof value === "string" ? value.trim() : value > 0,
+                ).length
+              }{" "}
+              / 4 fields completed
+            </span>
+          </div>
+          <div className="mt-2 w-full bg-blue-100 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${
+                  (Object.values(formData).filter((value) =>
+                    typeof value === "string" ? value.trim() : value > 0,
+                  ).length /
+                    4) *
+                  100
+                }%`,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* Security and Privacy Note */}
+        <div className="text-center space-y-2">
+          <p className="text-xs text-gray-600">
+            * Required fields. Your information is secured with end-to-end
+            encryption.
+          </p>
+          <p className="text-xs text-green-600 flex items-center justify-center">
+            <svg
+              className="w-3 h-3 mr-1"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+            >
+              <path
+                fillRule="evenodd"
+                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+            SSL encrypted and GDPR compliant
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -108,6 +108,47 @@ function validateAadhaarVerificationRequest(body: unknown): {
   return { isValid: true };
 }
 
+// In-memory storage for verification sessions (for demo - use Redis/DB in production)
+const verificationSessions = new Map<
+  string,
+  {
+    status: "pending" | "completed" | "failed" | "expired";
+    result?: boolean;
+    hashedIdentifier?: string;
+    credentialSubject?: any;
+    timestamp: number;
+    expiresAt: number;
+  }
+>();
+
+// Make sessions available globally for status endpoint
+if (typeof global !== "undefined") {
+  global.verificationSessions = verificationSessions;
+}
+
+// Clean up expired sessions every 5 minutes
+setInterval(
+  () => {
+    const now = Date.now();
+    for (const [sessionId, session] of verificationSessions.entries()) {
+      if (now > session.expiresAt) {
+        verificationSessions.delete(sessionId);
+      }
+    }
+  },
+  5 * 60 * 1000,
+);
+
+/**
+ * Generate a unique session ID for verification tracking
+ */
+function generateSessionId(): string {
+  return createHash("sha256")
+    .update(`${Date.now()}-${Math.random()}`)
+    .digest("hex")
+    .substring(0, 16);
+}
+
 /**
  * Initialize Self Protocol verifier for Aadhaar verification
  * For hackathon demo: uses mock implementation
@@ -187,6 +228,24 @@ export interface AadhaarVerificationRequest {
 export interface AadhaarVerificationResponse {
   status: "success" | "error";
   result: boolean;
+  hashedIdentifier?: string;
+  credentialSubject?: {
+    nationality: string;
+    gender: string;
+    minimumAge: boolean;
+  };
+  message?: string;
+  errorCode?: string;
+  sessionId?: string; // For polling verification status
+}
+
+export interface VerificationStatusRequest {
+  sessionId: string;
+}
+
+export interface VerificationStatusResponse {
+  status: "pending" | "completed" | "failed" | "expired";
+  result?: boolean;
   hashedIdentifier?: string;
   credentialSubject?: {
     nationality: string;
@@ -311,8 +370,26 @@ export async function POST(req: NextRequest) {
       credentialSubject,
     );
 
+    // Generate session ID for verification tracking
+    const sessionId = generateSessionId();
+
+    // Store verification result in session for polling
+    verificationSessions.set(sessionId, {
+      status: "completed",
+      result: true,
+      hashedIdentifier,
+      credentialSubject: {
+        nationality: credentialSubject.nationality,
+        gender: credentialSubject.gender,
+        minimumAge: credentialSubject.minimumAge,
+      },
+      timestamp: Date.now(),
+      expiresAt: Date.now() + 30 * 60 * 1000, // Expire in 30 minutes
+    });
+
     // Log successful verification (for demo purposes - no PII)
     console.log("Aadhaar verification successful:", {
+      sessionId,
       hashedIdentifier,
       location: body.userContextData.location,
       familySize: body.userContextData.familySize,
@@ -331,6 +408,7 @@ export async function POST(req: NextRequest) {
           gender: credentialSubject.gender,
           minimumAge: credentialSubject.minimumAge,
         },
+        sessionId, // Return session ID for polling
       } as AadhaarVerificationResponse,
       { status: 200 },
     );

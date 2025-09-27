@@ -1,5 +1,5 @@
-import crypto from 'crypto';
-import QRCode from 'qrcode';
+import * as crypto from "crypto";
+import * as QRCode from "qrcode";
 
 export interface FamilyData {
   hashedAadhaar: string;
@@ -9,56 +9,144 @@ export interface FamilyData {
   registrationTimestamp: number;
 }
 
+export interface AadhaarVerifiedFamilyData extends FamilyData {
+  credentialSubject: {
+    nationality: string;
+    gender: string;
+    minimumAge: boolean;
+  };
+  verificationTimestamp: number;
+}
+
 export interface URIDGenerationResult {
   urid: string;
   qrCodeDataURL: string;
   uridHash: string;
 }
 
+export interface URIDCollisionInfo {
+  attempts: number;
+  finalTimestamp: number;
+  collisionDetected: boolean;
+}
+
 export class URIDService {
+  // In-memory storage for demo purposes (production would use database)
+  private static uridRegistry = new Set<string>();
+  private static aadhaarRegistry = new Map<string, string>(); // hashedAadhaar -> URID mapping
+
   /**
    * Generate a unique URID based on family data
-   * Uses deterministic algorithm for consistent generation
+   * Supports both legacy format and Aadhaar-verified format
    */
   static generateURID(
     hashedAadhaar: string,
     location: string,
     familySize: number,
-    timestamp?: number
+    credentialSubjectOrTimestamp?:
+      | {
+          nationality: string;
+          gender: string;
+          minimumAge: boolean;
+        }
+      | number,
+    timestamp?: number,
   ): string {
     const normalizedLocation = this.normalizeLocation(location);
-    const timestampStr = (timestamp || Date.now()).toString();
-    
-    // Create deterministic URID from hash components
-    const uridData = `${hashedAadhaar}-${normalizedLocation}-${familySize}-${timestampStr}`;
-    
+
+    // Handle backward compatibility - if credentialSubjectOrTimestamp is a number, it's the old API
+    let credentialSubject: {
+      nationality: string;
+      gender: string;
+      minimumAge: boolean;
+    } | null = null;
+    let actualTimestamp: number;
+
+    if (typeof credentialSubjectOrTimestamp === "number") {
+      // Legacy API: generateURID(hashedAadhaar, location, familySize, timestamp)
+      actualTimestamp = credentialSubjectOrTimestamp;
+    } else if (
+      credentialSubjectOrTimestamp &&
+      typeof credentialSubjectOrTimestamp === "object"
+    ) {
+      // New API: generateURID(hashedAadhaar, location, familySize, credentialSubject, timestamp)
+      credentialSubject = credentialSubjectOrTimestamp;
+      actualTimestamp = timestamp || Date.now();
+    } else {
+      // Default case
+      actualTimestamp = Date.now();
+    }
+
+    const timestampStr = actualTimestamp.toString();
+
+    let uridData: string;
+
+    if (credentialSubject) {
+      // Create deterministic URID from Aadhaar-verified components
+      // Include credential subject data for additional uniqueness and verification
+      uridData = [
+        hashedAadhaar, // Self Protocol privacy-preserving Aadhaar hash
+        normalizedLocation,
+        familySize.toString(),
+        credentialSubject.nationality,
+        credentialSubject.gender,
+        credentialSubject.minimumAge ? "1" : "0",
+        timestampStr,
+      ].join("|");
+    } else {
+      // Legacy format for backward compatibility
+      uridData = `${hashedAadhaar}-${normalizedLocation}-${familySize}-${timestampStr}`;
+    }
+
     // Generate SHA-256 hash and take first 16 characters as hex
-    const hash = crypto.createHash('sha256').update(uridData).digest('hex');
+    const hash = crypto.createHash("sha256").update(uridData).digest("hex");
     return hash.substring(0, 16).toUpperCase();
   }
 
   /**
-   * Generate QR code for URID with error correction
+   * Check if a family with the same Aadhaar is already registered
+   * Prevents duplicate registrations using the same Aadhaar identity
+   */
+  static checkAadhaarDuplicate(hashedAadhaar: string): {
+    isDuplicate: boolean;
+    existingURID?: string;
+  } {
+    const existingURID = this.aadhaarRegistry.get(hashedAadhaar);
+    return {
+      isDuplicate: !!existingURID,
+      existingURID,
+    };
+  }
+
+  /**
+   * Generate QR code for URID with enhanced mobile scanning optimization
+   * Uses high error correction and optimal sizing for mobile cameras
    */
   static async generateQRCode(urid: string): Promise<string> {
     try {
-      // Generate QR code with high error correction level
+      // Validate URID format before generating QR code
+      if (!this.validateURID(urid)) {
+        throw new Error(`Invalid URID format: ${urid}`);
+      }
+
+      // Generate QR code optimized for mobile scanning
       const qrCodeDataURL = await QRCode.toDataURL(urid, {
-        errorCorrectionLevel: 'H',
-        type: 'image/png',
-        quality: 0.92,
-        margin: 2,
+        errorCorrectionLevel: "H", // High error correction for damaged/dirty screens
+        margin: 4, // Larger margin for better camera detection
         color: {
-          dark: '#000000',
-          light: '#FFFFFF'
+          dark: "#000000", // Pure black for maximum contrast
+          light: "#FFFFFF", // Pure white background
         },
-        width: 256
+        width: 300, // Larger size for better mobile scanning
+        scale: 8, // Higher scale for crisp rendering
       });
-      
+
       return qrCodeDataURL;
     } catch (error) {
-      console.error('QR code generation failed:', error);
-      throw new Error('Failed to generate QR code for URID');
+      console.error("QR code generation failed:", error);
+      throw new Error(
+        `Failed to generate QR code for URID: ${error instanceof Error ? error.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -74,51 +162,90 @@ export class URIDService {
    * Generate hash of URID for blockchain storage
    */
   static hashURID(urid: string): string {
-    return crypto.createHash('sha256').update(urid).digest('hex');
+    return crypto.createHash("sha256").update(urid).digest("hex");
   }
 
   /**
-   * Generate complete URID package (URID + QR code + hash)
+   * Generate complete URID package with Aadhaar verification integration
+   * Uses Self Protocol verified data for enhanced security and privacy
    */
-  static async generateURIDPackage(familyData: FamilyData): Promise<URIDGenerationResult> {
-    // Generate the URID
+  static async generateURIDPackage(
+    familyData: AadhaarVerifiedFamilyData,
+  ): Promise<URIDGenerationResult> {
+    // Check for existing Aadhaar registration first
+    const duplicateCheck = this.checkAadhaarDuplicate(familyData.hashedAadhaar);
+    if (duplicateCheck.isDuplicate) {
+      throw new Error(
+        `Family already registered with URID: ${duplicateCheck.existingURID}`,
+      );
+    }
+
+    // Generate the URID using Aadhaar-verified data
     const urid = this.generateURID(
       familyData.hashedAadhaar,
       familyData.location,
       familyData.familySize,
-      familyData.registrationTimestamp
+      familyData.credentialSubject,
+      familyData.registrationTimestamp,
     );
 
-    // Generate QR code
+    // Generate QR code optimized for mobile scanning
     const qrCodeDataURL = await this.generateQRCode(urid);
 
-    // Generate hash for blockchain
+    // Generate hash for blockchain storage
     const uridHash = this.hashURID(urid);
+
+    // Register the URID and Aadhaar mapping
+    this.uridRegistry.add(urid);
+    this.aadhaarRegistry.set(familyData.hashedAadhaar, urid);
 
     return {
       urid,
       qrCodeDataURL,
-      uridHash
+      uridHash,
     };
   }
 
+  // In-memory storage for family data (demo purposes)
+  private static familyDataRegistry = new Map<string, any>();
+
   /**
-   * Store URID mapping in database (mock implementation)
+   * Store URID mapping with Aadhaar verification data (mock implementation)
+   * In production, this would store in PostgreSQL with proper encryption
    */
-  static async storeURIDMapping(urid: string, familyData: FamilyData): Promise<void> {
-    // In production, this would store in PostgreSQL
-    // For demo purposes, we'll log the data
-    console.log('Storing URID mapping:', {
+  static async storeURIDMapping(
+    urid: string,
+    familyData: AadhaarVerifiedFamilyData & { [key: string]: any },
+  ): Promise<void> {
+    // In production, this would store in PostgreSQL with proper encryption
+    // For demo purposes, we'll log the privacy-preserving data
+    console.log("Storing Aadhaar-verified URID mapping:", {
       urid,
-      hashedAadhaar: familyData.hashedAadhaar,
+      hashedAadhaar: this.maskSensitiveData(familyData.hashedAadhaar),
       location: familyData.location,
       familySize: familyData.familySize,
       contactInfo: this.maskContactInfo(familyData.contactInfo),
-      registrationTimestamp: familyData.registrationTimestamp
+      nationality: familyData.credentialSubject.nationality,
+      minimumAge: familyData.credentialSubject.minimumAge,
+      registrationTimestamp: familyData.registrationTimestamp,
+      verificationTimestamp: familyData.verificationTimestamp,
     });
 
-    // Mock database storage
+    // Store in in-memory registries for demo
+    this.uridRegistry.add(urid);
+    this.aadhaarRegistry.set(familyData.hashedAadhaar, urid);
+    this.familyDataRegistry.set(urid, familyData);
+
     return Promise.resolve();
+  }
+
+  /**
+   * Get family data by URID (for lookup purposes)
+   */
+  static async getFamilyData(
+    urid: string,
+  ): Promise<AadhaarVerifiedFamilyData | null> {
+    return this.familyDataRegistry.get(urid) || null;
   }
 
   /**
@@ -128,7 +255,7 @@ export class URIDService {
     return location
       .toLowerCase()
       .trim()
-      .replace(/[^a-z0-9]/g, '') // Remove special characters
+      .replace(/[^a-z0-9]/g, "") // Remove special characters
       .substring(0, 20); // Limit length
   }
 
@@ -136,50 +263,85 @@ export class URIDService {
    * Mask contact information for logging
    */
   private static maskContactInfo(contactInfo: string): string {
-    if (contactInfo.length <= 4) return '***';
-    
+    if (contactInfo.length <= 4) return "***";
+
     const start = contactInfo.substring(0, 2);
     const end = contactInfo.substring(contactInfo.length - 2);
-    const middle = '*'.repeat(contactInfo.length - 4);
-    
+    const middle = "*".repeat(contactInfo.length - 4);
+
     return `${start}${middle}${end}`;
   }
 
   /**
-   * Check if URID already exists (mock implementation)
+   * Check if URID already exists in registry
+   * Uses in-memory storage for demo (production would use database)
    */
   static async checkURIDExists(urid: string): Promise<boolean> {
-    // In production, this would query the database
-    // For demo purposes, return false (URID is unique)
-    return Promise.resolve(false);
+    return Promise.resolve(this.uridRegistry.has(urid));
   }
 
   /**
-   * Generate URID with collision detection
+   * Generate URID with Aadhaar-based collision detection
+   * Implements robust collision handling with Aadhaar verification
    */
-  static async generateUniqueURID(familyData: FamilyData): Promise<URIDGenerationResult> {
+  static async generateUniqueURID(
+    familyData: AadhaarVerifiedFamilyData,
+  ): Promise<URIDGenerationResult & URIDCollisionInfo> {
     let attempts = 0;
     const maxAttempts = 5;
+    let collisionDetected = false;
+
+    // First check if this Aadhaar is already registered
+    const duplicateCheck = this.checkAadhaarDuplicate(familyData.hashedAadhaar);
+    if (duplicateCheck.isDuplicate) {
+      throw new Error(
+        `Family already registered with URID: ${duplicateCheck.existingURID}. Each Aadhaar can only be registered once.`,
+      );
+    }
 
     while (attempts < maxAttempts) {
       try {
-        // Add attempt counter to timestamp for uniqueness
-        const timestampWithAttempt = familyData.registrationTimestamp + attempts;
-        
-        const modifiedFamilyData = {
+        // Add attempt counter to timestamp for uniqueness in case of collision
+        const timestampWithAttempt =
+          familyData.registrationTimestamp + attempts;
+
+        const modifiedFamilyData: AadhaarVerifiedFamilyData = {
           ...familyData,
-          registrationTimestamp: timestampWithAttempt
+          registrationTimestamp: timestampWithAttempt,
         };
 
-        const result = await this.generateURIDPackage(modifiedFamilyData);
-        
+        // Generate URID with modified timestamp
+        const urid = this.generateURID(
+          modifiedFamilyData.hashedAadhaar,
+          modifiedFamilyData.location,
+          modifiedFamilyData.familySize,
+          modifiedFamilyData.credentialSubject,
+          modifiedFamilyData.registrationTimestamp,
+        );
+
         // Check if URID already exists
-        const exists = await this.checkURIDExists(result.urid);
-        
+        const exists = await this.checkURIDExists(urid);
+
         if (!exists) {
-          return result;
+          // Generate complete package
+          const qrCodeDataURL = await this.generateQRCode(urid);
+          const uridHash = this.hashURID(urid);
+
+          // Register the URID and Aadhaar mapping
+          this.uridRegistry.add(urid);
+          this.aadhaarRegistry.set(familyData.hashedAadhaar, urid);
+
+          return {
+            urid,
+            qrCodeDataURL,
+            uridHash,
+            attempts: attempts + 1,
+            finalTimestamp: timestampWithAttempt,
+            collisionDetected,
+          };
         }
-        
+
+        collisionDetected = true;
         attempts++;
       } catch (error) {
         console.error(`URID generation attempt ${attempts + 1} failed:`, error);
@@ -187,17 +349,89 @@ export class URIDService {
       }
     }
 
-    throw new Error('Failed to generate unique URID after maximum attempts');
+    throw new Error(
+      `Failed to generate unique URID after ${maxAttempts} attempts. This may indicate a system issue.`,
+    );
   }
 
   /**
    * Parse URID components (for debugging)
    */
-  static parseURID(urid: string): { isValid: boolean; length: number; format: string } {
+  static parseURID(urid: string): {
+    isValid: boolean;
+    length: number;
+    format: string;
+  } {
     return {
       isValid: this.validateURID(urid),
       length: urid.length,
-      format: urid.match(/^[A-F0-9]+$/) ? 'hex' : 'invalid'
+      format: urid.match(/^[A-F0-9]+$/) ? "hex" : "invalid",
     };
+  }
+
+  /**
+   * Mask sensitive data for logging (enhanced privacy protection)
+   */
+  private static maskSensitiveData(data: string): string {
+    if (data.length <= 8) return "***";
+
+    const start = data.substring(0, 4);
+    const end = data.substring(data.length - 4);
+    const middle = "*".repeat(data.length - 8);
+
+    return `${start}${middle}${end}`;
+  }
+
+  /**
+   * Get URID by Aadhaar hash (for duplicate checking)
+   */
+  static getURIDByAadhaar(hashedAadhaar: string): string | undefined {
+    return this.aadhaarRegistry.get(hashedAadhaar);
+  }
+
+  /**
+   * Get registration statistics (for monitoring)
+   */
+  static getRegistrationStats(): {
+    totalURIDs: number;
+    totalAadhaarRegistrations: number;
+    registrySize: number;
+  } {
+    return {
+      totalURIDs: this.uridRegistry.size,
+      totalAadhaarRegistrations: this.aadhaarRegistry.size,
+      registrySize: this.uridRegistry.size,
+    };
+  }
+
+  /**
+   * Clear registries (for testing purposes only)
+   */
+  static clearRegistries(): void {
+    this.uridRegistry.clear();
+    this.aadhaarRegistry.clear();
+    this.familyDataRegistry.clear();
+    console.log("URID registries cleared (testing mode)");
+  }
+
+  /**
+   * Validate Aadhaar verification data structure
+   */
+  static validateAadhaarVerificationData(
+    data: any,
+  ): data is AadhaarVerifiedFamilyData {
+    return (
+      data &&
+      typeof data.hashedAadhaar === "string" &&
+      typeof data.location === "string" &&
+      typeof data.familySize === "number" &&
+      typeof data.contactInfo === "string" &&
+      typeof data.registrationTimestamp === "number" &&
+      typeof data.verificationTimestamp === "number" &&
+      data.credentialSubject &&
+      typeof data.credentialSubject.nationality === "string" &&
+      typeof data.credentialSubject.gender === "string" &&
+      typeof data.credentialSubject.minimumAge === "boolean"
+    );
   }
 }

@@ -1,275 +1,349 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { SelfQRcodeWrapper } from '@selfxyz/qrcode';
-import { Button, LiveFeedback } from '@worldcoin/mini-apps-ui-kit-react';
-import { CheckIcon, XMarkIcon, DocumentTextIcon, QrCodeIcon } from '@heroicons/react/24/outline';
+import React, { useState, useCallback } from "react";
+import { SelfQRcodeWrapper } from "@selfxyz/core";
+import { SelfAppBuilder } from "@selfxyz/core";
+import {
+  useAadhaarVerificationPolling,
+  VerificationResult,
+} from "@/hooks/useAadhaarVerificationPolling";
+
+export interface FamilyRegistrationData {
+  headOfFamily: string;
+  familySize: number;
+  location: string;
+  contactNumber: string;
+}
 
 export interface AadhaarVerificationProps {
-  onVerificationComplete: (hashedId: string, credentialSubject: any) => void;
-  onError: (error: Error) => void;
-  familyData?: {
-    familySize: number;
-    location: string;
-    contactInfo: string;
-  };
-  disabled?: boolean;
-  className?: string;
+  familyData: FamilyRegistrationData;
+  onVerified: (hashedAadhaar: string, credentialSubject: any) => void;
+  onError: (error: string) => void;
 }
 
 export interface AadhaarVerificationState {
-  status: 'idle' | 'waiting_for_scan' | 'verifying' | 'success' | 'error';
-  error?: string;
-  hashedId?: string;
-  credentialSubject?: any;
+  phase:
+    | "qr_display"
+    | "waiting_verification"
+    | "polling_status"
+    | "completed"
+    | "error";
+  sessionId: string | null;
+  error: string | null;
 }
 
-const selfAppConfig = {
-  version: 2 as const,
-  appName: process.env.NEXT_PUBLIC_SELF_APP_NAME || "SewaChain Aadhaar Verification",
-  scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "sewachain-aadhaar",
-  endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT || "https://your-ngrok-url.com/api/verify-aadhaar",
-  logoBase64: "", // Will be set from logo file
-  userId: "beneficiary",
-  endpointType: "staging_https" as const,
-  userIdType: "hex" as const,
-  userDefinedData: "",
-  disclosures: {
-    minimumAge: 18,
-    nationality: true,
-    gender: true,
-  }
-};
-
+/**
+ * Aadhaar Verification Component using Self Protocol
+ *
+ * This component handles the complete Aadhaar verification flow:
+ * 1. Display QR code for Self app
+ * 2. User scans QR and verifies in Self app
+ * 3. Poll for verification status
+ * 4. Return results to parent component
+ */
 export function AadhaarVerification({
-  onVerificationComplete,
-  onError,
   familyData,
-  disabled = false,
-  className = ''
+  onVerified,
+  onError,
 }: AadhaarVerificationProps) {
-  const [verificationState, setVerificationState] = useState<AadhaarVerificationState>({
-    status: 'idle'
+  const [state, setState] = useState<AadhaarVerificationState>({
+    phase: "qr_display",
+    sessionId: null,
+    error: null,
   });
-  const [showInstructions, setShowInstructions] = useState(true);
 
-  // Reset verification state after timeout
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    if (verificationState.status === 'error') {
-      timeoutId = setTimeout(() => {
-        setVerificationState({ status: 'idle' });
-      }, 5000);
+  // Set up verification status polling
+  const {
+    status: pollStatus,
+    result,
+    error: pollError,
+    isPolling,
+  } = useAadhaarVerificationPolling({
+    sessionId: state.sessionId,
+    onSuccess: useCallback(
+      (result: VerificationResult) => {
+        setState((prev) => ({ ...prev, phase: "completed" }));
+        onVerified(result.hashedIdentifier, result.credentialSubject);
+      },
+      [onVerified],
+    ),
+    onError: useCallback(
+      (error: string) => {
+        setState((prev) => ({ ...prev, phase: "error", error }));
+        onError(error);
+      },
+      [onError],
+    ),
+    onExpired: useCallback(() => {
+      setState((prev) => ({
+        ...prev,
+        phase: "error",
+        error: "Verification session expired",
+      }));
+      onError("Verification session expired - please try again");
+    }, [onError]),
+  });
+
+  // Create Self Protocol app configuration
+  const selfApp = React.useMemo(() => {
+    if (
+      !process.env.NEXT_PUBLIC_SELF_APP_NAME ||
+      !process.env.NEXT_PUBLIC_SELF_SCOPE ||
+      !process.env.NEXT_PUBLIC_SELF_ENDPOINT
+    ) {
+      console.error("Self Protocol configuration missing");
+      return null;
     }
-    
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [verificationState.status]);
 
-  const handleStartVerification = () => {
-    setVerificationState({ status: 'waiting_for_scan' });
-    setShowInstructions(false);
-  };
+    return new SelfAppBuilder({
+      appName: process.env.NEXT_PUBLIC_SELF_APP_NAME,
+      scope: process.env.NEXT_PUBLIC_SELF_SCOPE,
+      endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT,
+      userId: `family_${Date.now()}`, // Unique identifier for this verification
+      userIdType: "uuid",
+      version: 2,
+      userDefinedData: JSON.stringify({
+        familySize: familyData.familySize,
+        location: familyData.location,
+        contactInfo: familyData.contactNumber,
+        timestamp: Date.now(),
+      }),
+      disclosures: {
+        nationality: true,
+        gender: true,
+        minimumAge: 18, // Require 18+ for family registration
+      },
+      devMode: process.env.NODE_ENV === "development",
+    }).build();
+  }, [familyData]);
 
-  const handleSelfQRSuccess = (data: any) => {
-    console.log('Self Protocol verification success:', data);
-    setVerificationState({ status: 'verifying' });
-    
-    // The actual verification will be handled by the backend endpoint
-    // For now, we'll simulate the process
-    setTimeout(() => {
-      const mockHashedId = generateMockHashedId();
-      const mockCredentialSubject = {
-        nationality: "IN",
-        gender: "M",
-        minimumAge: true
-      };
-      
-      setVerificationState({
-        status: 'success',
-        hashedId: mockHashedId,
-        credentialSubject: mockCredentialSubject
-      });
-      
-      onVerificationComplete(mockHashedId, mockCredentialSubject);
-    }, 2000);
-  };
+  // Handle successful QR scan/verification initiation
+  const handleVerificationStart = useCallback(() => {
+    console.log("Aadhaar verification started via Self app");
+    setState((prev) => ({ ...prev, phase: "waiting_verification" }));
+  }, []);
 
-  const handleSelfQRError = (error: any) => {
-    console.error('Self Protocol verification error:', error);
-    const errorMessage = error?.message || 'Aadhaar verification failed';
-    
-    setVerificationState({
-      status: 'error',
-      error: errorMessage
-    });
-    
-    onError(new Error(errorMessage));
-  };
+  // Handle QR code errors
+  const handleQRError = useCallback(
+    (error: { error_code?: string; reason?: string }) => {
+      console.error("Self Protocol QR error:", error);
+      const errorMessage =
+        error.reason || error.error_code || "QR code generation failed";
+      setState((prev) => ({ ...prev, phase: "error", error: errorMessage }));
+      onError(errorMessage);
+    },
+    [onError],
+  );
 
-  const generateMockHashedId = (): string => {
-    // Generate a mock hashed ID for demo purposes
-    return Math.random().toString(36).substring(2, 18);
-  };
+  // Handle verification completion (from Self app callback)
+  const handleVerificationComplete = useCallback(
+    async (verificationData: any) => {
+      console.log(
+        "Verification data received from Self app:",
+        verificationData,
+      );
 
-  const getStatusIcon = () => {
-    switch (verificationState.status) {
-      case 'success':
-        return <CheckIcon className="w-6 h-6 text-green-600" />;
-      case 'error':
-        return <XMarkIcon className="w-6 h-6 text-red-600" />;
-      case 'verifying':
-        return <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />;
-      default:
-        return <DocumentTextIcon className="w-6 h-6 text-blue-600" />;
-    }
-  };
-
-  const getStatusMessage = () => {
-    switch (verificationState.status) {
-      case 'waiting_for_scan':
-        return 'Please scan your Aadhaar QR code using the Self Protocol app';
-      case 'verifying':
-        return 'Verifying Aadhaar details with Self Protocol...';
-      case 'success':
-        return 'Aadhaar verification completed successfully!';
-      case 'error':
-        return verificationState.error || 'Verification failed. Please try again.';
-      default:
-        return 'Ready to verify your Aadhaar card';
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (verificationState.status) {
-      case 'success':
-        return 'text-green-700';
-      case 'error':
-        return 'text-red-700';
-      case 'verifying':
-        return 'text-blue-700';
-      default:
-        return 'text-gray-700';
-    }
-  };
-
-  // Update config with family data
-  const configWithUserData = {
-    ...selfAppConfig,
-    userDefinedData: familyData ? JSON.stringify(familyData) : ""
-  };
-
-  return (
-    <div className={`w-full max-w-md mx-auto space-y-6 ${className}`}>
-      {/* Instructions */}
-      {showInstructions && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start space-x-3">
-            <DocumentTextIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-            <div className="text-sm">
-              <p className="font-medium text-blue-900 mb-2">Aadhaar Verification Required</p>
-              <ul className="text-blue-700 space-y-1 list-disc list-inside">
-                <li>Have your Aadhaar card ready</li>
-                <li>Install Self Protocol app on your phone</li>
-                <li>Scan the QR code that will appear</li>
-                <li>Follow the Self Protocol verification steps</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Status Display */}
-      <div className="flex items-center space-x-3 p-4 bg-gray-50 rounded-lg">
-        {getStatusIcon()}
-        <div className="flex-1">
-          <p className={`text-sm font-medium ${getStatusColor()}`}>
-            {getStatusMessage()}
-          </p>
-          {verificationState.hashedId && (
-            <p className="text-xs text-gray-500 mt-1">
-              Hashed ID: {verificationState.hashedId}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Verification Button */}
-      {verificationState.status === 'idle' && (
-        <Button
-          onClick={handleStartVerification}
-          disabled={disabled}
-          variant="primary"
-          className="w-full flex items-center justify-center space-x-2 py-3"
-        >
-          <QrCodeIcon className="w-5 h-5" />
-          <span>Start Aadhaar Verification</span>
-        </Button>
-      )}
-
-      {/* Self Protocol QR Code */}
-      {verificationState.status === 'waiting_for_scan' && (
-        <div className="space-y-4">
-          <div className="text-center">
-            <p className="text-sm text-gray-600 mb-4">
-              Scan this QR code with the Self Protocol app on your phone
-            </p>
-          </div>
-          
-          <div className="flex justify-center p-4 bg-white rounded-lg border-2 border-dashed border-gray-300">
-            <SelfQRcodeWrapper
-              config={configWithUserData}
-              onSuccess={handleSelfQRSuccess}
-              onError={handleSelfQRError}
-            />
-          </div>
-          
-          <div className="text-center">
-            <Button
-              onClick={() => setVerificationState({ status: 'idle' })}
-              variant="tertiary"
-              size="sm"
-            >
-              Cancel Verification
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Live Feedback */}
-      {(verificationState.status === 'verifying' || 
-        verificationState.status === 'success' || 
-        verificationState.status === 'error') && (
-        <LiveFeedback
-          status={
-            verificationState.status === 'success' ? 'success' : 
-            verificationState.status === 'error' ? 'error' : 'loading'
+      try {
+        // The verification data should contain the session ID for polling
+        if (verificationData.sessionId) {
+          setState((prev) => ({
+            ...prev,
+            phase: "polling_status",
+            sessionId: verificationData.sessionId,
+          }));
+        } else {
+          // Direct verification result (fallback)
+          if (
+            verificationData.hashedIdentifier &&
+            verificationData.credentialSubject
+          ) {
+            setState((prev) => ({ ...prev, phase: "completed" }));
+            onVerified(
+              verificationData.hashedIdentifier,
+              verificationData.credentialSubject,
+            );
+          } else {
+            throw new Error("Invalid verification data received");
           }
-          message={getStatusMessage()}
-        />
-      )}
+        }
+      } catch (error) {
+        console.error("Error processing verification completion:", error);
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to process verification";
+        setState((prev) => ({ ...prev, phase: "error", error: errorMessage }));
+        onError(errorMessage);
+      }
+    },
+    [onVerified, onError],
+  );
 
-      {/* Verification Details */}
-      {verificationState.status === 'success' && verificationState.credentialSubject && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <h4 className="font-medium text-green-900 mb-2">Verified Information</h4>
-          <div className="text-sm text-green-800 space-y-1">
-            <p>✓ Nationality: {verificationState.credentialSubject.nationality}</p>
-            <p>✓ Age: {verificationState.credentialSubject.minimumAge ? '18+' : 'Verified'}</p>
-            <p>✓ Gender: {verificationState.credentialSubject.gender}</p>
-            <p>✓ Identity: Verified with Self Protocol</p>
-          </div>
-        </div>
-      )}
+  // Retry verification
+  const handleRetry = useCallback(() => {
+    setState({
+      phase: "qr_display",
+      sessionId: null,
+      error: null,
+    });
+  }, []);
 
-      {/* Privacy Notice */}
-      <div className="text-xs text-gray-500 text-center">
-        <p>
-          🔒 Your Aadhaar number is never stored. Only a privacy-preserving proof is generated.
+  if (!selfApp) {
+    return (
+      <div className="p-6 bg-red-50 border border-red-200 rounded-lg">
+        <h3 className="text-lg font-semibold text-red-800 mb-2">
+          Configuration Error
+        </h3>
+        <p className="text-red-600">
+          Self Protocol configuration is missing. Please check your environment
+          variables.
         </p>
       </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
+      <div className="text-center mb-6">
+        <h2 className="text-xl font-semibold text-gray-900 mb-2">
+          Aadhaar Verification
+        </h2>
+        <p className="text-sm text-gray-600">
+          Verify your identity using the Self app for privacy-preserving Aadhaar
+          verification
+        </p>
+      </div>
+
+      {/* QR Code Display Phase */}
+      {state.phase === "qr_display" && (
+        <div className="text-center">
+          <div className="mb-4">
+            <SelfQRcodeWrapper
+              selfApp={selfApp}
+              onSuccess={handleVerificationStart}
+              onError={handleQRError}
+              type="websocket"
+              size={250}
+              darkMode={false}
+            />
+          </div>
+          <div className="space-y-2">
+            <p className="text-sm text-gray-600">
+              1. Open the Self app on your phone
+            </p>
+            <p className="text-sm text-gray-600">2. Scan the QR code above</p>
+            <p className="text-sm text-gray-600">
+              3. Complete Aadhaar verification in the Self app
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Waiting for Verification Phase */}
+      {state.phase === "waiting_verification" && (
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Verification in Progress
+          </h3>
+          <p className="text-sm text-gray-600">
+            Please complete the Aadhaar verification in your Self app
+          </p>
+        </div>
+      )}
+
+      {/* Polling Status Phase */}
+      {state.phase === "polling_status" && (
+        <div className="text-center">
+          <div className="animate-pulse rounded-full h-12 w-12 bg-blue-100 mx-auto mb-4 flex items-center justify-center">
+            <div className="w-6 h-6 bg-blue-600 rounded-full"></div>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            Checking Verification Status
+          </h3>
+          <p className="text-sm text-gray-600 mb-2">
+            {isPolling
+              ? "Checking verification status..."
+              : "Waiting for verification..."}
+          </p>
+          <div className="text-xs text-gray-500">Status: {pollStatus}</div>
+        </div>
+      )}
+
+      {/* Completed Phase */}
+      {state.phase === "completed" && result && (
+        <div className="text-center">
+          <div className="w-12 h-12 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <svg
+              className="w-6 h-6 text-green-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-green-800 mb-2">
+            Verification Successful
+          </h3>
+          <p className="text-sm text-gray-600">
+            Your Aadhaar has been verified successfully. Proceeding with family
+            registration...
+          </p>
+        </div>
+      )}
+
+      {/* Error Phase */}
+      {state.phase === "error" && (
+        <div className="text-center">
+          <div className="w-12 h-12 bg-red-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+            <svg
+              className="w-6 h-6 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
+            </svg>
+          </div>
+          <h3 className="text-lg font-medium text-red-800 mb-2">
+            Verification Failed
+          </h3>
+          <p className="text-sm text-red-600 mb-4">
+            {state.error ||
+              pollError ||
+              "An error occurred during verification"}
+          </p>
+          <button
+            onClick={handleRetry}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      )}
+
+      {/* Debug Info (Development Only) */}
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-6 p-3 bg-gray-50 rounded text-xs text-gray-500">
+          <div>Phase: {state.phase}</div>
+          <div>Session ID: {state.sessionId || "None"}</div>
+          <div>Poll Status: {pollStatus}</div>
+          <div>Is Polling: {isPolling ? "Yes" : "No"}</div>
+          {state.error && <div>Error: {state.error}</div>}
+          {pollError && <div>Poll Error: {pollError}</div>}
+        </div>
+      )}
     </div>
   );
 }

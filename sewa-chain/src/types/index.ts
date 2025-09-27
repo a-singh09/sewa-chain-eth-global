@@ -39,21 +39,21 @@ export interface PaymentTransaction {
   id: string;
   amount: string;
   currency: string;
-  status: 'pending' | 'success' | 'failed';
+  status: "pending" | "success" | "failed";
   timestamp: Date;
 }
 
 // Volunteer Verification types
 export enum VerificationLevel {
-  Device = 'device',
-  Orb = 'orb'
+  Device = "device",
+  Orb = "orb",
 }
 
 export enum VolunteerPermission {
-  DISTRIBUTE_AID = 'distribute_aid',
-  VERIFY_BENEFICIARIES = 'verify_beneficiaries',
-  VIEW_DISTRIBUTION_DATA = 'view_distribution_data',
-  MANAGE_INVENTORY = 'manage_inventory'
+  DISTRIBUTE_AID = "distribute_aid",
+  VERIFY_BENEFICIARIES = "verify_beneficiaries",
+  VIEW_DISTRIBUTION_DATA = "view_distribution_data",
+  MANAGE_INVENTORY = "manage_inventory",
 }
 
 export interface VolunteerSession {
@@ -75,12 +75,12 @@ export interface VerificationError {
 }
 
 export enum VerificationErrorCode {
-  MINIKIT_UNAVAILABLE = 'MINIKIT_UNAVAILABLE',
-  USER_CANCELLED = 'USER_CANCELLED',
-  VERIFICATION_FAILED = 'VERIFICATION_FAILED',
-  ALREADY_REGISTERED = 'ALREADY_REGISTERED',
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  INVALID_PROOF = 'INVALID_PROOF'
+  MINIKIT_UNAVAILABLE = "MINIKIT_UNAVAILABLE",
+  USER_CANCELLED = "USER_CANCELLED",
+  VERIFICATION_FAILED = "VERIFICATION_FAILED",
+  ALREADY_REGISTERED = "ALREADY_REGISTERED",
+  NETWORK_ERROR = "NETWORK_ERROR",
+  INVALID_PROOF = "INVALID_PROOF",
 }
 
 export interface VolunteerVerificationProps {
@@ -105,7 +105,7 @@ export interface VerifyVolunteerResponse {
   };
 }
 
-export type VerificationState = 'idle' | 'pending' | 'success' | 'failed';
+export type VerificationState = "idle" | "pending" | "success" | "failed";
 
 // Aadhaar Verification types
 export interface AadhaarVerificationRequest {
@@ -120,7 +120,7 @@ export interface AadhaarVerificationRequest {
 }
 
 export interface AadhaarVerificationResponse {
-  status: 'success' | 'error';
+  status: "success" | "error";
   result: boolean;
   hashedIdentifier?: string;
   credentialSubject?: {
@@ -140,10 +140,25 @@ export interface FamilyData {
   registrationTimestamp: number;
 }
 
+export interface AadhaarVerifiedFamilyData extends FamilyData {
+  credentialSubject: {
+    nationality: string;
+    gender: string;
+    minimumAge: boolean;
+  };
+  verificationTimestamp: number;
+}
+
 export interface URIDGenerationResult {
   urid: string;
   qrCodeDataURL: string;
   uridHash: string;
+}
+
+export interface URIDCollisionInfo {
+  attempts: number;
+  finalTimestamp: number;
+  collisionDetected: boolean;
 }
 
 export interface GenerateURIDRequest {
@@ -155,7 +170,7 @@ export interface GenerateURIDRequest {
 }
 
 export interface GenerateURIDResponse {
-  status: 'success' | 'error';
+  status: "success" | "error";
   urid?: string;
   qrCode?: string;
   uridHash?: string;
@@ -165,12 +180,12 @@ export interface GenerateURIDResponse {
 
 // Aid Distribution types
 export enum AidType {
-  FOOD = 'FOOD',
-  MEDICAL = 'MEDICAL',
-  SHELTER = 'SHELTER',
-  CLOTHING = 'CLOTHING',
-  WATER = 'WATER',
-  CASH = 'CASH'
+  FOOD = "FOOD",
+  MEDICAL = "MEDICAL",
+  SHELTER = "SHELTER",
+  CLOTHING = "CLOTHING",
+  WATER = "WATER",
+  CASH = "CASH",
 }
 
 export interface Distribution {
@@ -211,7 +226,7 @@ export interface FamilyRegistrationData {
 }
 
 export interface RegistrationState {
-  step: 'basic_info' | 'aadhaar_verification' | 'urid_generation' | 'complete';
+  step: "basic_info" | "aadhaar_verification" | "urid_generation" | "complete";
   familyData: FamilyRegistrationData;
   hashedAadhaar?: string;
   credentialSubject?: any;
@@ -301,11 +316,11 @@ export interface VolunteerStats {
 }
 
 export enum ContractErrorType {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  INSUFFICIENT_FUNDS = 'INSUFFICIENT_FUNDS',
-  CONTRACT_REVERT = 'CONTRACT_REVERT',
-  TIMEOUT = 'TIMEOUT',
-  VALIDATION_FAILED = 'VALIDATION_FAILED'
+  NETWORK_ERROR = "NETWORK_ERROR",
+  INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS",
+  CONTRACT_REVERT = "CONTRACT_REVERT",
+  TIMEOUT = "TIMEOUT",
+  VALIDATION_FAILED = "VALIDATION_FAILED",
 }
 
 export interface ContractError {
@@ -320,15 +335,21 @@ export interface ContractError {
 // Contract Service Interface
 export interface IContractService {
   // URID Registry Operations
-  registerFamily(uridHash: string, familySize: number): Promise<TransactionResult>;
+  registerFamily(
+    uridHash: string,
+    familySize: number,
+  ): Promise<TransactionResult>;
   validateFamily(uridHash: string): Promise<boolean>;
   getFamilyInfo(uridHash: string): Promise<Family | null>;
-  
+
   // Distribution Tracker Operations
   recordDistribution(params: DistributionParams): Promise<TransactionResult>;
-  checkEligibility(uridHash: string, aidType: AidType): Promise<EligibilityResult>;
+  checkEligibility(
+    uridHash: string,
+    aidType: AidType,
+  ): Promise<EligibilityResult>;
   getDistributionHistory(uridHash: string): Promise<ContractDistribution[]>;
-  
+
   // Analytics & Statistics
   getContractStats(): Promise<ContractStats>;
   getVolunteerStats(nullifier: string): Promise<VolunteerStats>;
@@ -346,15 +367,23 @@ export interface DistributionParams {
 export interface ContractContextType {
   isConnected: boolean;
   networkId: number;
-  contractAddresses: ContractConfig['contractAddresses'];
+  contractAddresses: ContractConfig["contractAddresses"];
   blockNumber: number;
   gasPrice: bigint;
-  
+
   // Contract operations
-  registerFamily: (params: { uridHash: string; familySize: number }) => Promise<TransactionResult>;
-  recordDistribution: (params: DistributionParams) => Promise<TransactionResult>;
+  registerFamily: (params: {
+    uridHash: string;
+    familySize: number;
+  }) => Promise<TransactionResult>;
+  recordDistribution: (
+    params: DistributionParams,
+  ) => Promise<TransactionResult>;
   validateFamily: (uridHash: string) => Promise<boolean>;
-  checkEligibility: (uridHash: string, aidType: AidType) => Promise<EligibilityResult>;
+  checkEligibility: (
+    uridHash: string,
+    aidType: AidType,
+  ) => Promise<EligibilityResult>;
 }
 
 // QR Scanner Component Types
@@ -365,8 +394,8 @@ export interface QRScannerProps {
   className?: string;
 }
 
-export type CameraPermissionStatus = 'checking' | 'granted' | 'denied';
-export type ScanResult = 'success' | 'error' | 'idle';
+export type CameraPermissionStatus = "checking" | "granted" | "denied";
+export type ScanResult = "success" | "error" | "idle";
 
 // Family Registration Flow Types
 export interface FamilyRegistrationProps {
@@ -399,7 +428,13 @@ export interface AidDistributionProps {
 }
 
 export interface DistributionState {
-  phase: 'scanning' | 'validating' | 'selecting' | 'confirming' | 'recording' | 'complete';
+  phase:
+    | "scanning"
+    | "validating"
+    | "selecting"
+    | "confirming"
+    | "recording"
+    | "complete";
   scannedURID?: string;
   familyInfo?: Family;
   selectedAidType?: AidType;
@@ -421,7 +456,7 @@ export interface AidTypeSelectorProps {
 
 // Dashboard Component Types
 export interface DashboardProps {
-  userRole: 'volunteer' | 'admin';
+  userRole: "volunteer" | "admin";
   refreshInterval?: number;
 }
 
@@ -480,7 +515,7 @@ export interface MiniKitPaymentParams {
 
 // Error Handling Types
 export interface LiveFeedbackProps {
-  status: 'success' | 'error' | 'loading' | 'idle';
+  status: "success" | "error" | "loading" | "idle";
   message: string;
   className?: string;
 }
@@ -503,7 +538,7 @@ export interface ValidationRule {
 export interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'number' | 'tel' | 'email' | 'textarea';
+  type: "text" | "number" | "tel" | "email" | "textarea";
   validation: ValidationRule;
   placeholder?: string;
   helpText?: string;
@@ -527,7 +562,11 @@ export type AsyncState<T> = {
   error: string | null;
 };
 
-export type NetworkStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+export type NetworkStatus =
+  | "connected"
+  | "disconnected"
+  | "connecting"
+  | "error";
 
 // Constants
 export const COOLDOWN_PERIODS: Record<AidType, number> = {
@@ -540,28 +579,34 @@ export const COOLDOWN_PERIODS: Record<AidType, number> = {
 };
 
 export const ERROR_MESSAGES: Record<string, string> = {
-  [VerificationErrorCode.MINIKIT_UNAVAILABLE]: 'World App is required to use this feature. Please open this app in World App.',
-  [VerificationErrorCode.USER_CANCELLED]: 'Verification was cancelled. Please try again.',
-  [VerificationErrorCode.VERIFICATION_FAILED]: 'Verification failed. Please ensure you have completed World ID verification.',
-  [VerificationErrorCode.ALREADY_REGISTERED]: 'This volunteer is already registered in the system.',
-  [VerificationErrorCode.NETWORK_ERROR]: 'Network error occurred. Please check your connection and try again.',
-  [VerificationErrorCode.INVALID_PROOF]: 'Invalid verification proof. Please try verifying again.',
+  [VerificationErrorCode.MINIKIT_UNAVAILABLE]:
+    "World App is required to use this feature. Please open this app in World App.",
+  [VerificationErrorCode.USER_CANCELLED]:
+    "Verification was cancelled. Please try again.",
+  [VerificationErrorCode.VERIFICATION_FAILED]:
+    "Verification failed. Please ensure you have completed World ID verification.",
+  [VerificationErrorCode.ALREADY_REGISTERED]:
+    "This volunteer is already registered in the system.",
+  [VerificationErrorCode.NETWORK_ERROR]:
+    "Network error occurred. Please check your connection and try again.",
+  [VerificationErrorCode.INVALID_PROOF]:
+    "Invalid verification proof. Please try verifying again.",
 };
 
 export const AID_TYPE_ICONS: Record<AidType, string> = {
-  [AidType.FOOD]: '🍽️',
-  [AidType.MEDICAL]: '🏥',
-  [AidType.SHELTER]: '🏠',
-  [AidType.CLOTHING]: '👕',
-  [AidType.WATER]: '💧',
-  [AidType.CASH]: '💰',
+  [AidType.FOOD]: "🍽️",
+  [AidType.MEDICAL]: "🏥",
+  [AidType.SHELTER]: "🏠",
+  [AidType.CLOTHING]: "👕",
+  [AidType.WATER]: "💧",
+  [AidType.CASH]: "💰",
 };
 
 export const AID_TYPE_LABELS: Record<AidType, string> = {
-  [AidType.FOOD]: 'Food Aid',
-  [AidType.MEDICAL]: 'Medical Aid',
-  [AidType.SHELTER]: 'Shelter',
-  [AidType.CLOTHING]: 'Clothing',
-  [AidType.WATER]: 'Water',
-  [AidType.CASH]: 'Cash Aid',
+  [AidType.FOOD]: "Food Aid",
+  [AidType.MEDICAL]: "Medical Aid",
+  [AidType.SHELTER]: "Shelter",
+  [AidType.CLOTHING]: "Clothing",
+  [AidType.WATER]: "Water",
+  [AidType.CASH]: "Cash Aid",
 };
