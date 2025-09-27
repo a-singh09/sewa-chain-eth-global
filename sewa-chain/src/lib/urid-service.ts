@@ -98,9 +98,17 @@ export class URIDService {
       uridData = `${hashedAadhaar}-${normalizedLocation}-${familySize}-${timestampStr}`;
     }
 
-    // Generate SHA-256 hash and take first 16 characters as hex
-    const hash = crypto.createHash("sha256").update(uridData).digest("hex");
-    return hash.substring(0, 16).toUpperCase();
+    // Generate simple hash using browser-compatible method
+    let hash = 0;
+    for (let i = 0; i < uridData.length; i++) {
+      const char = uridData.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    // Convert to hex and take first 16 characters
+    const hexHash = Math.abs(hash).toString(16).padStart(8, "0");
+    const timestampHex = Date.now().toString(16).slice(-8);
+    return (hexHash + timestampHex).substring(0, 16).toUpperCase();
   }
 
   /**
@@ -160,9 +168,42 @@ export class URIDService {
 
   /**
    * Generate hash of URID for blockchain storage
+   * Returns a 66-character hash (0x + 64 hex characters) compatible with Ethereum
    */
   static hashURID(urid: string): string {
-    return crypto.createHash("sha256").update(urid).digest("hex");
+    // Create a more robust hash using multiple rounds of simple hashing
+    // This is browser-compatible and doesn't require crypto libraries
+
+    let hash1 = 0;
+    let hash2 = 0;
+
+    // First hash pass
+    for (let i = 0; i < urid.length; i++) {
+      const char = urid.charCodeAt(i);
+      hash1 = (hash1 << 5) - hash1 + char;
+      hash1 = hash1 & hash1; // Convert to 32-bit integer
+    }
+
+    // Second hash pass with different seed
+    const seed = urid + hash1.toString();
+    for (let i = 0; i < seed.length; i++) {
+      const char = seed.charCodeAt(i);
+      hash2 = (hash2 << 7) - hash2 + char;
+      hash2 = hash2 & hash2; // Convert to 32-bit integer
+    }
+
+    // Combine hashes and extend to 64 characters
+    const combinedHash =
+      Math.abs(hash1).toString(16) + Math.abs(hash2).toString(16);
+
+    // Extend to exactly 64 characters by repeating and truncating
+    let extendedHash = combinedHash;
+    while (extendedHash.length < 64) {
+      extendedHash += combinedHash;
+    }
+    extendedHash = extendedHash.substring(0, 64);
+
+    return `0x${extendedHash}`;
   }
 
   /**
