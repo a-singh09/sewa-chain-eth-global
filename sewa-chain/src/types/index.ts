@@ -356,3 +356,212 @@ export interface ContractContextType {
   validateFamily: (uridHash: string) => Promise<boolean>;
   checkEligibility: (uridHash: string, aidType: AidType) => Promise<EligibilityResult>;
 }
+
+// QR Scanner Component Types
+export interface QRScannerProps {
+  onScan: (urid: string) => void;
+  onError: (error: string) => void;
+  isActive: boolean;
+  className?: string;
+}
+
+export type CameraPermissionStatus = 'checking' | 'granted' | 'denied';
+export type ScanResult = 'success' | 'error' | 'idle';
+
+// Family Registration Flow Types
+export interface FamilyRegistrationProps {
+  onComplete: (urid: string) => void;
+  onError: (error: Error) => void;
+}
+
+export interface BasicInfoFormProps {
+  onNext: (data: FamilyRegistrationData) => void;
+  initialData?: Partial<FamilyRegistrationData>;
+}
+
+export interface AadhaarVerificationProps {
+  familyData: FamilyRegistrationData;
+  onVerified: (hashedAadhaar: string, credentialSubject: any) => void;
+  onError: (error: string) => void;
+}
+
+export interface URIDDisplayProps {
+  urid: string;
+  qrCode: string;
+  familyData: FamilyRegistrationData;
+  onComplete: () => void;
+}
+
+// Aid Distribution Flow Types
+export interface AidDistributionProps {
+  volunteerSession: VolunteerSession;
+  onDistributionComplete: (distribution: Distribution) => void;
+}
+
+export interface DistributionState {
+  phase: 'scanning' | 'validating' | 'selecting' | 'confirming' | 'recording' | 'complete';
+  scannedURID?: string;
+  familyInfo?: Family;
+  selectedAidType?: AidType;
+  eligibilityChecks?: Array<{
+    aidType: AidType;
+    eligibility: EligibilityResult;
+  }>;
+  isProcessing: boolean;
+  error?: string;
+}
+
+export interface AidTypeSelectorProps {
+  eligibilityChecks: Array<{
+    aidType: AidType;
+    eligibility: EligibilityResult;
+  }>;
+  onSelect: (aidType: AidType) => void;
+}
+
+// Dashboard Component Types
+export interface DashboardProps {
+  userRole: 'volunteer' | 'admin';
+  refreshInterval?: number;
+}
+
+export interface StatisticsCardProps {
+  title: string;
+  value: number | string;
+  icon: React.ReactNode;
+  trend?: {
+    value: number;
+    isPositive: boolean;
+  };
+}
+
+export interface ActivityTimelineProps {
+  distributions: Distribution[];
+  maxItems?: number;
+}
+
+export interface VolunteerMetricsProps {
+  volunteerSession: VolunteerSession;
+  stats: VolunteerStats;
+}
+
+// MiniKit Integration Types
+export interface MiniKitWalletAuthParams {
+  nonce: string;
+  expirationTime: Date;
+  notBefore: Date;
+  statement: string;
+}
+
+export interface MiniKitVerifyParams {
+  action: string;
+  verification_level: VerificationLevel;
+  signal?: string;
+}
+
+export interface MiniKitTransactionParams {
+  transaction: Array<{
+    address: string;
+    abi: any[];
+    functionName: string;
+    args: any[];
+  }>;
+}
+
+export interface MiniKitPaymentParams {
+  reference: string;
+  to: string;
+  tokens: Array<{
+    symbol: string;
+    token_amount: string;
+  }>;
+  description: string;
+}
+
+// Error Handling Types
+export interface LiveFeedbackProps {
+  status: 'success' | 'error' | 'loading' | 'idle';
+  message: string;
+  className?: string;
+}
+
+export interface ErrorBoundaryState {
+  hasError: boolean;
+  error?: Error;
+  errorInfo?: any;
+}
+
+// Form Validation Types
+export interface ValidationRule {
+  required?: boolean;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: RegExp;
+  custom?: (value: any) => string | null;
+}
+
+export interface FormField {
+  name: string;
+  label: string;
+  type: 'text' | 'number' | 'tel' | 'email' | 'textarea';
+  validation: ValidationRule;
+  placeholder?: string;
+  helpText?: string;
+}
+
+export interface FormState {
+  values: Record<string, any>;
+  errors: Record<string, string>;
+  touched: Record<string, boolean>;
+  isSubmitting: boolean;
+}
+
+// Utility Types
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+export type AsyncState<T> = {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+};
+
+export type NetworkStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
+
+// Constants
+export const COOLDOWN_PERIODS: Record<AidType, number> = {
+  [AidType.FOOD]: 24 * 60 * 60 * 1000, // 24 hours
+  [AidType.MEDICAL]: 12 * 60 * 60 * 1000, // 12 hours
+  [AidType.SHELTER]: 7 * 24 * 60 * 60 * 1000, // 7 days
+  [AidType.CLOTHING]: 30 * 24 * 60 * 60 * 1000, // 30 days
+  [AidType.WATER]: 12 * 60 * 60 * 1000, // 12 hours
+  [AidType.CASH]: 7 * 24 * 60 * 60 * 1000, // 7 days
+};
+
+export const ERROR_MESSAGES: Record<string, string> = {
+  [VerificationErrorCode.MINIKIT_UNAVAILABLE]: 'World App is required to use this feature. Please open this app in World App.',
+  [VerificationErrorCode.USER_CANCELLED]: 'Verification was cancelled. Please try again.',
+  [VerificationErrorCode.VERIFICATION_FAILED]: 'Verification failed. Please ensure you have completed World ID verification.',
+  [VerificationErrorCode.ALREADY_REGISTERED]: 'This volunteer is already registered in the system.',
+  [VerificationErrorCode.NETWORK_ERROR]: 'Network error occurred. Please check your connection and try again.',
+  [VerificationErrorCode.INVALID_PROOF]: 'Invalid verification proof. Please try verifying again.',
+};
+
+export const AID_TYPE_ICONS: Record<AidType, string> = {
+  [AidType.FOOD]: '🍽️',
+  [AidType.MEDICAL]: '🏥',
+  [AidType.SHELTER]: '🏠',
+  [AidType.CLOTHING]: '👕',
+  [AidType.WATER]: '💧',
+  [AidType.CASH]: '💰',
+};
+
+export const AID_TYPE_LABELS: Record<AidType, string> = {
+  [AidType.FOOD]: 'Food Aid',
+  [AidType.MEDICAL]: 'Medical Aid',
+  [AidType.SHELTER]: 'Shelter',
+  [AidType.CLOTHING]: 'Clothing',
+  [AidType.WATER]: 'Water',
+  [AidType.CASH]: 'Cash Aid',
+};
