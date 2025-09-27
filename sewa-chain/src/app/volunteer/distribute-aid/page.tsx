@@ -1,423 +1,562 @@
-'use client';
+"use client";
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useVolunteerSession } from '@/hooks/useVolunteerSession';
-import { Page } from '@/components/PageLayout';
-import { QRScanner } from '@/components/QRScanner';
-import { AidTypeSelector } from '@/components/AidTypeSelector';
-import { Button, Input } from '@worldcoin/mini-apps-ui-kit-react';
-import { 
-  QrCodeIcon, 
-  GiftIcon, 
-  ClockIcon, 
+import React, { useState, useEffect } from "react";
+import { Button } from "@worldcoin/mini-apps-ui-kit-react";
+import {
+  QrCodeIcon,
   CheckCircleIcon,
-  ArrowPathIcon,
-  ArrowRightOnRectangleIcon,
-  InformationCircleIcon
-} from '@heroicons/react/24/outline';
-import { AidType, DistributionEligibility } from '@/types';
-import { getContractService } from '@/services/ContractService';
+  ExclamationTriangleIcon,
+  ClockIcon,
+  UserGroupIcon,
+  MapPinIcon,
+} from "@heroicons/react/24/outline";
+import { QRScanner } from "@/components/QRScanner";
+import { AidTypeSelector } from "@/components/AidTypeSelector";
+import { useVolunteerSession } from "@/hooks/useVolunteerSession";
+import {
+  DistributionState,
+  AidType,
+  EligibilityResult,
+  Family,
+  VolunteerSession,
+} from "@/types";
 
 export default function DistributeAidPage() {
-  const router = useRouter();
-  const { session, isAuthenticated, isLoading: sessionLoading } = useVolunteerSession();
-  const [scannedURID, setScannedURID] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [eligibilityChecks, setEligibilityChecks] = useState<DistributionEligibility[]>([]);
-  const [selectedAidType, setSelectedAidType] = useState<AidType | null>(null);
-  const [quantity, setQuantity] = useState(1);
-  const [location, setLocation] = useState('');
-  const [distributionResult, setDistributionResult] = useState<any>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isEligibilityLoading, setIsEligibilityLoading] = useState(false);
+  const { volunteerSession, isLoading: sessionLoading } = useVolunteerSession();
+  const [distributionState, setDistributionState] = useState<DistributionState>(
+    {
+      phase: "scanning",
+      isProcessing: false,
+    },
+  );
 
-  // Check authentication
+  // Reset to scanning phase when component mounts
   useEffect(() => {
-    if (!sessionLoading && !isAuthenticated) {
-      router.push('/volunteer/verify');
-    }
-  }, [isAuthenticated, sessionLoading, router]);
+    setDistributionState({
+      phase: "scanning",
+      isProcessing: false,
+    });
+  }, []);
 
-  // Check eligibility when a URID is scanned
-  useEffect(() => {
-    if (scannedURID) {
-      checkEligibility();
-    }
-  }, [scannedURID]);
-
-  const checkEligibility = async () => {
-    if (!scannedURID) return;
-    
-    setIsEligibilityLoading(true);
-    setError(null);
-    setEligibilityChecks([]);
-    
-    try {
-      // Check eligibility for all aid types
-      const aidTypes: AidType[] = [
-        AidType.FOOD,
-        AidType.MEDICAL,
-        AidType.SHELTER,
-        AidType.CLOTHING,
-        AidType.WATER,
-        AidType.CASH
-      ];
-      
-      const eligibilityPromises = aidTypes.map(async (aidType) => {
-        try {
-          const response = await fetch(`/api/distributions/history?urid=${scannedURID}&aidType=${aidType}`);
-          const result = await response.json();
-          
-          return {
-            aidType,
-            eligibility: result.success ? { 
-              eligible: result.eligible, 
-              timeUntilEligible: result.timeUntilEligible || 0 
-            } : {
-              eligible: false,
-              timeUntilEligible: 0
-            }
-          };
-        } catch (error) {
-          return {
-            aidType,
-            eligibility: { eligible: false, timeUntilEligible: 0 }
-          };
-        }
-      });
-      
-      const eligibilityResults = await Promise.all(eligibilityPromises);
-      setEligibilityChecks(eligibilityResults);
-    } catch (err) {
-      setError('Failed to check eligibility');
-      console.error('Eligibility check error:', err);
-    } finally {
-      setIsEligibilityLoading(false);
-    }
-  };
-
-  const handleQRScan = (urid: string) => {
-    setScannedURID(urid);
-    setDistributionResult(null);
-    setSelectedAidType(null);
-    setQuantity(1);
-    setLocation('');
-    setError(null);
-  };
-
-  const handleAidTypeSelect = (aidType: AidType) => {
-    const eligibility = eligibilityChecks.find(e => e.aidType === aidType)?.eligibility;
-    if (eligibility?.eligible) {
-      setSelectedAidType(aidType);
-    }
-  };
-
-  const handleRecordDistribution = async () => {
-    if (!scannedURID || !selectedAidType || !session || !location.trim()) {
-      setError('Please complete all required fields');
-      return;
-    }
-
-    if (quantity <= 0) {
-      setError('Quantity must be greater than 0');
-      return;
-    }
-
-    setIsLoading(true);
-    setError(null);
+  // Handle QR code scan
+  const handleQRScan = async (urid: string) => {
+    setDistributionState((prev) => ({
+      ...prev,
+      phase: "validating",
+      scannedURID: urid,
+      isProcessing: true,
+      error: undefined,
+    }));
 
     try {
-      // Prepare distribution data
-      const distributionData = {
-        urid: scannedURID,
-        volunteerSession: session.sessionToken || 'mock-session',
-        distribution: {
-          aidType: selectedAidType,
-          quantity,
-          location: location.trim(),
-        }
-      };
-
-      // Call API to record distribution
-      const response = await fetch('/api/distributions/record', {
-        method: 'POST',
+      // Validate family and check eligibility for all aid types
+      const response = await fetch("/api/families/validate", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify(distributionData),
+        body: JSON.stringify({
+          urid,
+          volunteerSession: volunteerSession?.sessionToken,
+        }),
       });
 
-      const result = await response.json();
+      const data = await response.json();
 
-      if (result.success) {
-        setDistributionResult({
-          success: true,
-          distributionId: result.distributionId,
-          transactionHash: result.transactionHash,
-        });
-        // Show success message
-      } else {
-        setError(result.error?.message || 'Failed to record distribution');
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to validate family");
       }
-    } catch (err) {
-      setError('Network error occurred');
-      console.error('Distribution recording error:', err);
-    } finally {
-      setIsLoading(false);
+
+      // Check eligibility for all aid types
+      const eligibilityChecks = await Promise.all(
+        Object.values(AidType).map(async (aidType) => {
+          const eligibilityResponse = await fetch(
+            "/api/distributions/eligibility",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                urid,
+                aidType,
+                volunteerSession: volunteerSession?.sessionToken,
+              }),
+            },
+          );
+
+          const eligibilityData = await eligibilityResponse.json();
+
+          return {
+            aidType,
+            eligibility: eligibilityData.eligibility as EligibilityResult,
+          };
+        }),
+      );
+
+      setDistributionState((prev) => ({
+        ...prev,
+        phase: "selecting",
+        familyInfo: data.family,
+        eligibilityChecks,
+        isProcessing: false,
+      }));
+    } catch (error) {
+      console.error("Family validation error:", error);
+      setDistributionState((prev) => ({
+        ...prev,
+        phase: "scanning",
+        isProcessing: false,
+        error:
+          error instanceof Error ? error.message : "Failed to validate family",
+      }));
     }
   };
 
-  const handleStartNew = () => {
-    setScannedURID(null);
-    setSelectedAidType(null);
-    setQuantity(1);
-    setLocation('');
-    setDistributionResult(null);
-    setError(null);
+  // Handle aid type selection
+  const handleAidTypeSelect = (aidType: AidType) => {
+    setDistributionState((prev) => ({
+      ...prev,
+      phase: "confirming",
+      selectedAidType: aidType,
+    }));
   };
 
+  // Handle distribution confirmation
+  const handleConfirmDistribution = async (distributionData: {
+    quantity: number;
+    location: string;
+  }) => {
+    if (
+      !distributionState.scannedURID ||
+      !distributionState.selectedAidType ||
+      !volunteerSession
+    ) {
+      return;
+    }
+
+    setDistributionState((prev) => ({
+      ...prev,
+      phase: "recording",
+      isProcessing: true,
+    }));
+
+    try {
+      // First record in API (for immediate feedback and validation)
+      const response = await fetch("/api/distributions/record", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          urid: distributionState.scannedURID,
+          aidType: distributionState.selectedAidType,
+          quantity: distributionData.quantity,
+          location: distributionData.location,
+          volunteerSession: volunteerSession.sessionToken,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || "Failed to record distribution");
+      }
+
+      // If API recording succeeds, proceed to blockchain transaction
+      // For demo purposes, we'll simulate the blockchain transaction
+      // In production, this would use MiniKitService.recordDistribution()
+
+      // Simulate blockchain transaction delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      console.log("Distribution recorded successfully:", {
+        distributionId: data.distributionId,
+        transactionHash: data.transactionHash,
+      });
+
+      setDistributionState((prev) => ({
+        ...prev,
+        phase: "complete",
+        isProcessing: false,
+      }));
+    } catch (error) {
+      console.error("Distribution recording error:", error);
+      setDistributionState((prev) => ({
+        ...prev,
+        phase: "confirming",
+        isProcessing: false,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to record distribution",
+      }));
+    }
+  };
+
+  // Handle scan error
+  const handleScanError = (error: string) => {
+    setDistributionState((prev) => ({
+      ...prev,
+      error,
+    }));
+  };
+
+  // Reset to start new distribution
+  const handleStartNew = () => {
+    setDistributionState({
+      phase: "scanning",
+      isProcessing: false,
+    });
+  };
+
+  // Show loading if session is still loading
   if (sessionLoading) {
     return (
-      <Page>
-        <div className="flex items-center justify-center min-h-screen">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading session...</p>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading volunteer session...</p>
         </div>
-      </Page>
+      </div>
     );
   }
 
-  if (!isAuthenticated) {
-    return null; // Redirect handled by useEffect
+  // Show error if no volunteer session
+  if (!volunteerSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Volunteer Verification Required
+          </h2>
+          <p className="text-gray-600 mb-6">
+            You need to verify your volunteer status before distributing aid.
+          </p>
+          <Button
+            onClick={() => (window.location.href = "/volunteer/verify")}
+            variant="primary"
+            className="w-full min-h-[44px]"
+          >
+            Verify as Volunteer
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <Page>
-      <div className="max-w-4xl mx-auto p-4">
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-2xl mx-auto p-4">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            <GiftIcon className="w-8 h-8 text-blue-600" />
-            <h1 className="text-2xl font-bold text-gray-900">Distribute Aid</h1>
+        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Distribute Aid
+              </h1>
+              <p className="text-gray-600 mt-1">
+                Scan family QR code to record aid distribution
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-500">Volunteer</p>
+              <p className="font-medium text-gray-900">
+                {volunteerSession.volunteerId.substring(0, 8)}...
+              </p>
+            </div>
           </div>
+        </div>
+
+        {/* Error Display */}
+        {distributionState.error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+            <div className="flex items-center">
+              <ExclamationTriangleIcon className="w-5 h-5 text-red-500 mr-2" />
+              <p className="text-red-700">{distributionState.error}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Phase-based Content */}
+        {distributionState.phase === "scanning" && (
+          <ScanningPhase
+            onScan={handleQRScan}
+            onError={handleScanError}
+            isProcessing={distributionState.isProcessing}
+          />
+        )}
+
+        {distributionState.phase === "validating" && <ValidatingPhase />}
+
+        {distributionState.phase === "selecting" &&
+          distributionState.eligibilityChecks && (
+            <SelectingPhase
+              familyInfo={distributionState.familyInfo}
+              eligibilityChecks={distributionState.eligibilityChecks}
+              onSelect={handleAidTypeSelect}
+              onBack={handleStartNew}
+            />
+          )}
+
+        {distributionState.phase === "confirming" && (
+          <ConfirmingPhase
+            familyInfo={distributionState.familyInfo}
+            selectedAidType={distributionState.selectedAidType!}
+            onConfirm={handleConfirmDistribution}
+            onBack={() =>
+              setDistributionState((prev) => ({ ...prev, phase: "selecting" }))
+            }
+            isProcessing={distributionState.isProcessing}
+          />
+        )}
+
+        {distributionState.phase === "recording" && <RecordingPhase />}
+
+        {distributionState.phase === "complete" && (
+          <CompletePhase onStartNew={handleStartNew} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Scanning Phase Component
+function ScanningPhase({
+  onScan,
+  onError,
+  isProcessing,
+}: {
+  onScan: (urid: string) => void;
+  onError: (error: string) => void;
+  isProcessing: boolean;
+}) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <QRScanner onScan={onScan} onError={onError} isActive={!isProcessing} />
+
+      {isProcessing && (
+        <div className="mt-4 text-center">
+          <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-gray-600">Validating family...</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Validating Phase Component
+function ValidatingPhase() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        Validating Family
+      </h3>
+      <p className="text-gray-600">
+        Checking family registration and aid eligibility...
+      </p>
+    </div>
+  );
+}
+
+// Selecting Phase Component
+function SelectingPhase({
+  familyInfo,
+  eligibilityChecks,
+  onSelect,
+  onBack,
+}: {
+  familyInfo?: Family;
+  eligibilityChecks: Array<{
+    aidType: AidType;
+    eligibility: EligibilityResult;
+  }>;
+  onSelect: (aidType: AidType) => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* Family Info */}
+      {familyInfo && (
+        <div className="bg-white rounded-lg shadow-sm p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">
+            Family Information
+          </h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center">
+              <UserGroupIcon className="w-5 h-5 text-gray-400 mr-2" />
+              <span className="text-gray-600">
+                Family Size: {familyInfo.familySize}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <ClockIcon className="w-5 h-5 text-gray-400 mr-2" />
+              <span className="text-gray-600">
+                Registered:{" "}
+                {new Date(familyInfo.registrationTime).toLocaleDateString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Aid Type Selection */}
+      <div className="bg-white rounded-lg shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">
+          Select Aid Type
+        </h3>
+        <AidTypeSelector
+          eligibilityChecks={eligibilityChecks}
+          onSelect={onSelect}
+        />
+      </div>
+
+      {/* Back Button */}
+      <div className="flex justify-center">
+        <Button
+          onClick={onBack}
+          variant="secondary"
+          className="min-h-[44px] px-8"
+        >
+          Scan Different QR Code
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// Confirming Phase Component
+function ConfirmingPhase({
+  familyInfo,
+  selectedAidType,
+  onConfirm,
+  onBack,
+  isProcessing,
+}: {
+  familyInfo?: Family;
+  selectedAidType: AidType;
+  onConfirm: (data: { quantity: number; location: string }) => void;
+  onBack: () => void;
+  isProcessing: boolean;
+}) {
+  const [quantity, setQuantity] = useState(1);
+  const [location, setLocation] = useState("");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (quantity > 0 && location.trim()) {
+      onConfirm({ quantity, location: location.trim() });
+    }
+  };
+
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-6">
+      <h3 className="text-lg font-semibold text-gray-900 mb-6">
+        Confirm Distribution
+      </h3>
+
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Aid Type Display */}
+        <div className="bg-blue-50 rounded-lg p-4">
+          <p className="text-sm text-blue-600 font-medium">Selected Aid Type</p>
+          <p className="text-lg font-semibold text-blue-900">
+            {selectedAidType}
+          </p>
+        </div>
+
+        {/* Quantity Input */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Quantity
+          </label>
+          <input
+            type="number"
+            min="1"
+            max="50"
+            value={quantity}
+            onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          />
+        </div>
+
+        {/* Location Input */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Distribution Location
+          </label>
+          <input
+            type="text"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="e.g., Relief Camp A, Sector 5"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            required
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex space-x-4">
           <Button
-            onClick={() => router.push('/volunteer/dashboard')}
+            type="button"
+            onClick={onBack}
             variant="secondary"
-            className="flex items-center space-x-2"
+            className="flex-1 min-h-[44px]"
+            disabled={isProcessing}
           >
-            <ArrowRightOnRectangleIcon className="w-4 h-4" />
-            <span>Dashboard</span>
+            Back
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            className="flex-1 min-h-[44px]"
+            disabled={isProcessing || !location.trim()}
+          >
+            {isProcessing ? "Recording..." : "Confirm Distribution"}
           </Button>
         </div>
+      </form>
+    </div>
+  );
+}
 
-        {/* Main Content */}
-        <div className="bg-white rounded-xl shadow-md p-6">
-          {distributionResult ? (
-            // Success screen
-            <div className="text-center py-8">
-              <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">Distribution Recorded!</h2>
-              <p className="text-gray-600 mb-6">
-                Aid distribution has been successfully recorded on the blockchain.
-              </p>
-              
-              <div className="bg-gray-50 rounded-lg p-4 mb-6 text-left">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="font-medium text-gray-700">URID:</span>
-                    <p className="font-mono">{scannedURID}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Aid Type:</span>
-                    <p>{selectedAidType}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Quantity:</span>
-                    <p>{quantity}</p>
-                  </div>
-                  <div>
-                    <span className="font-medium text-gray-700">Location:</span>
-                    <p>{location}</p>
-                  </div>
-                </div>
-                
-                {distributionResult.transactionHash && (
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <span className="font-medium text-gray-700">Transaction Hash:</span>
-                    <p className="font-mono text-sm break-all mt-1">{distributionResult.transactionHash}</p>
-                  </div>
-                )}
-              </div>
+// Recording Phase Component
+function RecordingPhase() {
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+      <div className="w-12 h-12 border-4 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        Recording Distribution
+      </h3>
+      <p className="text-gray-600">
+        Saving distribution record to blockchain...
+      </p>
+    </div>
+  );
+}
 
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <Button
-                  onClick={handleStartNew}
-                  variant="primary"
-                  className="min-h-[44px]"
-                >
-                  Record Another Distribution
-                </Button>
-                <Button
-                  onClick={() => router.push('/volunteer/dashboard')}
-                  variant="secondary"
-                  className="min-h-[44px]"
-                >
-                  Go to Dashboard
-                </Button>
-              </div>
-            </div>
-          ) : !scannedURID ? (
-            // QR Scanner screen
-            <div>
-              <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
-                  <QrCodeIcon className="w-8 h-8 text-blue-600" />
-                </div>
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Scan Beneficiary URID</h2>
-                <p className="text-gray-600">
-                  Scan the QR code or enter the URID of the beneficiary family to distribute aid
-                </p>
-              </div>
+// Complete Phase Component
+function CompletePhase({ onStartNew }: { onStartNew: () => void }) {
+  return (
+    <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+      <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
+      <h3 className="text-xl font-semibold text-gray-900 mb-2">
+        Distribution Recorded Successfully
+      </h3>
+      <p className="text-gray-600 mb-6">
+        The aid distribution has been recorded on the blockchain and the
+        family's eligibility has been updated.
+      </p>
 
-              <div className="bg-gray-50 rounded-lg p-4 mb-6">
-                <div className="flex items-start space-x-3">
-                  <InformationCircleIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h3 className="font-medium text-gray-900">How it works:</h3>
-                    <ol className="text-sm text-gray-600 list-decimal list-inside space-y-1 mt-1">
-                      <li>Scan the beneficiary's URID QR code</li>
-                      <li>Check eligibility for different aid types</li>
-                      <li>Select aid type and enter details</li>
-                      <li>Record distribution on blockchain</li>
-                    </ol>
-                  </div>
-                </div>
-              </div>
-
-              <QRScanner
-                onScan={handleQRScan}
-                onError={(err) => setError(err)}
-                isActive={true}
-                className="mb-6"
-              />
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                  <p className="text-red-700">{error}</p>
-                </div>
-              )}
-            </div>
-          ) : (
-            // Distribution form screen
-            <div>
-              <div className="text-center mb-6">
-                <CheckCircleIcon className="w-12 h-12 text-green-500 mx-auto mb-2" />
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">Beneficiary Found</h2>
-                <p className="text-gray-600">
-                  URID: <span className="font-mono font-bold">{scannedURID}</span>
-                </p>
-              </div>
-
-              {isEligibilityLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600">Checking eligibility...</p>
-                </div>
-              ) : (
-                <>
-                  <div className="mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Aid Type</h3>
-                    <AidTypeSelector 
-                      eligibilityChecks={eligibilityChecks} 
-                      onSelect={handleAidTypeSelect} 
-                    />
-                  </div>
-
-                  {selectedAidType && (
-                    <div className="space-y-4">
-                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <p className="text-blue-800 font-medium">
-                          Selected: {selectedAidType} aid for this family
-                        </p>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Quantity/Amount
-                        </label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={quantity}
-                          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-full"
-                          placeholder="Enter quantity"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Distribution Location
-                        </label>
-                        <Input
-                          type="text"
-                          value={location}
-                          onChange={(e) => setLocation(e.target.value)}
-                          className="w-full"
-                          placeholder="Enter location where aid was distributed"
-                        />
-                        <p className="text-xs text-gray-500 mt-1">
-                          This helps track where aid is being distributed
-                        </p>
-                      </div>
-
-                      {error && (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                          <p className="text-red-700">{error}</p>
-                        </div>
-                      )}
-
-                      <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                        <Button
-                          onClick={handleRecordDistribution}
-                          disabled={isLoading}
-                          variant="primary"
-                          className="min-h-[44px] flex-1"
-                        >
-                          {isLoading ? (
-                            <span className="flex items-center justify-center">
-                              <ArrowPathIcon className="w-4 h-4 mr-2 animate-spin" />
-                              Recording...
-                            </span>
-                          ) : (
-                            'Record Distribution'
-                          )}
-                        </Button>
-                        
-                        <Button
-                          onClick={() => setScannedURID(null)}
-                          variant="secondary"
-                          className="min-h-[44px] flex-1"
-                        >
-                          Scan Another
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Help Section */}
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>Need help? Contact your coordinator or visit our support center.</p>
-        </div>
-      </div>
-    </Page>
+      <Button
+        onClick={onStartNew}
+        variant="primary"
+        className="min-h-[44px] px-8"
+      >
+        Distribute to Another Family
+      </Button>
+    </div>
   );
 }

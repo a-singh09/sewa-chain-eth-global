@@ -1,334 +1,339 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getContractService } from '@/services/ContractService';
-import { URIDService } from '@/lib/urid-service';
-import type { AidType, DistributionParams } from '@/types';
+import { NextRequest, NextResponse } from "next/server";
+import jwt from "jsonwebtoken";
+import {
+  DistributionRequest,
+  DistributionResponse,
+  Distribution,
+  AidType,
+  VolunteerSession,
+  EligibilityResult,
+  COOLDOWN_PERIODS,
+} from "@/types";
+import { URIDService } from "@/lib/urid-service";
 
-export interface RecordDistributionRequest {
-  urid?: string;
-  uridHash?: string;
-  volunteerSession: string;
-  distribution: {
-    aidType: AidType;
-    quantity: number;
-    location: string;
-    notes?: string;
-  };
-}
+// In-memory storage for demo purposes
+const distributionRegistry = new Map<string, Distribution[]>(); // uridHash -> distributions
+const volunteerDistributions = new Map<string, Distribution[]>(); // volunteerNullifier -> distributions
 
-export interface RecordDistributionResponse {
-  success: boolean;
-  distributionId?: string;
-  transactionHash?: string;
-  nextEligibleTime?: number;
-  error?: {
-    code: string;
-    message: string;
-  };
-}
-
-/**
- * Distribution Recording API Route
- * Records aid distribution on smart contract with eligibility checks
- */
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const body = await req.json() as RecordDistributionRequest;
-    
-    // Validate required fields
-    if (!body.volunteerSession || !body.distribution) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'MISSING_FIELDS',
-          message: 'Missing required fields: volunteerSession, distribution'
-        }
-      } as RecordDistributionResponse, { status: 400 });
+    const body: DistributionRequest = await request.json();
+    const { urid, aidType, quantity, location, volunteerSession } = body;
+
+    // Validate request data
+    if (!urid || !aidType || !quantity || !location || !volunteerSession) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "MISSING_FIELDS",
+            message: "Missing required fields",
+          },
+        },
+        { status: 400 },
+      );
     }
 
-    if (!body.urid && !body.uridHash) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'MISSING_IDENTIFIER',
-          message: 'Either URID or URID hash is required'
-        }
-      } as RecordDistributionResponse, { status: 400 });
-    }
-
-    const { distribution } = body;
-
-    // Validate distribution details
-    if (!distribution.aidType || !distribution.quantity || !distribution.location) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_DISTRIBUTION',
-          message: 'Missing distribution details: aidType, quantity, location required'
-        }
-      } as RecordDistributionResponse, { status: 400 });
-    }
-
-    if (distribution.quantity <= 0 || distribution.quantity > 1000000) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_QUANTITY',
-          message: 'Quantity must be between 1 and 1,000,000'
-        }
-      } as RecordDistributionResponse, { status: 400 });
-    }
-
-    if (distribution.location.trim().length === 0) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_LOCATION',
-          message: 'Location cannot be empty'
-        }
-      } as RecordDistributionResponse, { status: 400 });
+    // Validate URID format
+    if (!URIDService.validateURID(urid)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_URID",
+            message: "Invalid URID format",
+          },
+        },
+        { status: 400 },
+      );
     }
 
     // Validate aid type
-    const validAidTypes = ['FOOD', 'MEDICAL', 'SHELTER', 'CLOTHING', 'WATER', 'CASH'];
-    if (!validAidTypes.includes(distribution.aidType)) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_AID_TYPE',
-          message: `Invalid aid type. Must be one of: ${validAidTypes.join(', ')}`
-        }
-      } as RecordDistributionResponse, { status: 400 });
-    }
-
-    // TODO: Validate volunteer session and extract nullifier
-    // const volunteerData = await validateVolunteerSession(body.volunteerSession);
-    // if (!volunteerData) {
-    //   return NextResponse.json({
-    //     success: false,
-    //     error: {
-    //       code: 'INVALID_VOLUNTEER',
-    //       message: 'Invalid volunteer session'
-    //     }
-    //   } as RecordDistributionResponse, { status: 401 });
-    // }
-    
-    // Mock volunteer nullifier for now
-    const volunteerNullifier = '0x' + Buffer.from('mock_volunteer_' + Date.now()).toString('hex').padStart(64, '0');
-
-    // Get URID hash
-    let uridHash = body.uridHash;
-    if (body.urid && !uridHash) {
-      if (!URIDService.validateURID(body.urid)) {
-        return NextResponse.json({
+    if (!Object.values(AidType).includes(aidType)) {
+      return NextResponse.json(
+        {
           success: false,
           error: {
-            code: 'INVALID_URID_FORMAT',
-            message: 'Invalid URID format'
-          }
-        } as RecordDistributionResponse, { status: 400 });
+            code: "INVALID_AID_TYPE",
+            message: "Invalid aid type",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    // Validate quantity
+    if (quantity <= 0 || quantity > 50) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_QUANTITY",
+            message: "Quantity must be between 1 and 50",
+          },
+        },
+        { status: 400 },
+      );
+    }
+
+    // Verify volunteer session
+    let decodedSession: VolunteerSession;
+    try {
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET not configured");
       }
-      uridHash = URIDService.hashURID(body.urid);
+
+      decodedSession = jwt.verify(
+        volunteerSession,
+        jwtSecret,
+      ) as VolunteerSession;
+
+      // Check if session is expired
+      if (Date.now() > decodedSession.expiresAt) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: "SESSION_EXPIRED",
+              message: "Volunteer session has expired",
+            },
+          },
+          { status: 401 },
+        );
+      }
+    } catch (error) {
+      console.error("Session verification error:", error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_SESSION",
+            message: "Invalid volunteer session",
+          },
+        },
+        { status: 401 },
+      );
     }
 
-    if (!uridHash || uridHash === '0x' || uridHash.length !== 66) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_HASH_FORMAT',
-          message: 'Invalid URID hash format'
-        }
-      } as RecordDistributionResponse, { status: 400 });
+    // Check if family exists (URID validation)
+    const familyExists = await URIDService.checkURIDExists(urid);
+    if (!familyExists) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "FAMILY_NOT_FOUND",
+            message: "Family not found. Please verify the QR code is correct.",
+          },
+        },
+        { status: 404 },
+      );
     }
 
-    const contractService = getContractService(
-      process.env.NODE_ENV === 'production' ? 'mainnet' : 'testnet'
-    );
+    // Generate URID hash for storage
+    const uridHash = URIDService.hashURID(urid);
 
-    // Validate family exists and is active
-    const isValidFamily = await contractService.validateFamily(uridHash);
-    if (!isValidFamily) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'FAMILY_NOT_FOUND',
-          message: 'Family not found or inactive'
-        }
-      } as RecordDistributionResponse, { status: 404 });
-    }
-
-    // Check eligibility (cooldown period)
-    const eligibility = await contractService.checkEligibility(uridHash, distribution.aidType);
+    // Check family eligibility for this aid type
+    const eligibility = await checkFamilyEligibility(uridHash, aidType);
     if (!eligibility.eligible) {
-      const hoursRemaining = Math.ceil(eligibility.timeUntilEligible / 3600);
-      const nextEligibleTime = Date.now() + (eligibility.timeUntilEligible * 1000);
-      
-      return NextResponse.json({
-        success: false,
-        nextEligibleTime,
-        error: {
-          code: 'NOT_ELIGIBLE',
-          message: `Family not eligible for ${distribution.aidType}. Please wait ${hoursRemaining} hours.`
-        }
-      } as RecordDistributionResponse, { status: 409 });
+      const timeRemaining = Math.ceil(
+        eligibility.timeUntilEligible / (1000 * 60 * 60),
+      ); // hours
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "NOT_ELIGIBLE",
+            message: `Family is not eligible for ${aidType}. Please wait ${timeRemaining} hours.`,
+          },
+        },
+        { status: 400 },
+      );
     }
 
-    // Record distribution on smart contract
-    const distributionParams: DistributionParams = {
+    // Create distribution record
+    const distributionId = generateDistributionId();
+    const distribution: Distribution = {
+      id: distributionId,
       uridHash,
-      volunteerNullifier,
-      aidType: distribution.aidType,
-      quantity: distribution.quantity,
-      location: distribution.location.trim()
+      volunteerNullifier: decodedSession.nullifierHash,
+      aidType,
+      quantity,
+      location: location.trim(),
+      timestamp: Date.now(),
+      confirmed: true, // For demo purposes, mark as confirmed immediately
     };
 
-    const result = await contractService.recordDistribution(distributionParams);
+    // Store distribution record
+    const familyDistributions = distributionRegistry.get(uridHash) || [];
+    familyDistributions.push(distribution);
+    distributionRegistry.set(uridHash, familyDistributions);
 
-    if (!result.success) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'CONTRACT_ERROR',
-          message: result.error || 'Smart contract recording failed'
-        }
-      } as RecordDistributionResponse, { status: 500 });
-    }
+    // Store volunteer distribution record
+    const volunteerDists =
+      volunteerDistributions.get(decodedSession.nullifierHash) || [];
+    volunteerDists.push(distribution);
+    volunteerDistributions.set(decodedSession.nullifierHash, volunteerDists);
 
-    // Generate distribution ID from transaction hash
-    const distributionId = result.transactionHash?.substring(0, 18) || 
-      'DIST_' + Math.random().toString(36).substring(2, 12).toUpperCase();
-
-    // Store additional distribution metadata locally if needed
-    try {
-      await storeDistributionMetadata({
-        distributionId,
-        urid: body.urid,
-        uridHash,
-        transactionHash: result.transactionHash,
-        volunteerSession: body.volunteerSession,
-        notes: distribution.notes,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      console.warn('Failed to store local metadata:', error);
-      // Continue even if local storage fails
-    }
-
-    console.log('Distribution recorded successfully:', {
+    console.log("Distribution recorded:", {
       distributionId,
-      urid: body.urid || 'N/A',
-      aidType: distribution.aidType,
-      quantity: distribution.quantity,
-      location: distribution.location,
-      transactionHash: result.transactionHash,
-      timestamp: new Date().toISOString()
-    });
-
-    return NextResponse.json({
-      success: true,
-      distributionId,
-      transactionHash: result.transactionHash
-    } as RecordDistributionResponse, { status: 200 });
-
-  } catch (error) {
-    console.error('Distribution recording error:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'RECORDING_FAILED',
-        message: error instanceof Error ? error.message : 'Internal server error during distribution recording'
-      }
-    } as RecordDistributionResponse, { status: 500 });
-  }
-}
-
-/**
- * GET endpoint to check distribution eligibility
- */
-export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const urid = url.searchParams.get('urid');
-  const uridHash = url.searchParams.get('uridHash');
-  const aidType = url.searchParams.get('aidType') as AidType;
-  
-  if (!urid && !uridHash) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'MISSING_IDENTIFIER',
-        message: 'Either URID or URID hash is required'
-      }
-    }, { status: 400 });
-  }
-
-  if (!aidType) {
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'MISSING_AID_TYPE',
-        message: 'Aid type is required'
-      }
-    }, { status: 400 });
-  }
-
-  try {
-    let queryHash = uridHash;
-    if (urid && !uridHash) {
-      if (!URIDService.validateURID(urid)) {
-        return NextResponse.json({
-          success: false,
-          error: {
-            code: 'INVALID_URID_FORMAT',
-            message: 'Invalid URID format'
-          }
-        }, { status: 400 });
-      }
-      queryHash = URIDService.hashURID(urid);
-    }
-
-    if (!queryHash) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_HASH_FORMAT',
-          message: 'Invalid URID hash format'
-        }
-      }, { status: 400 });
-    }
-
-    const contractService = getContractService(
-      process.env.NODE_ENV === 'production' ? 'mainnet' : 'testnet'
-    );
-
-    const eligibility = await contractService.checkEligibility(queryHash, aidType);
-    
-    return NextResponse.json({
-      success: true,
-      eligible: eligibility.eligible,
-      timeUntilEligible: eligibility.timeUntilEligible,
-      nextEligibleTime: eligibility.eligible ? null : Date.now() + (eligibility.timeUntilEligible * 1000),
+      uridHash: uridHash.substring(0, 8) + "...",
+      volunteerNullifier: decodedSession.nullifierHash.substring(0, 8) + "...",
       aidType,
-      timestamp: new Date().toISOString()
+      quantity,
+      location,
+      timestamp: new Date(distribution.timestamp).toISOString(),
     });
 
+    // Return success response
+    const response: DistributionResponse = {
+      success: true,
+      distributionId,
+      // For demo purposes, we'll simulate a transaction hash
+      transactionHash: `0x${Math.random().toString(16).substring(2, 66)}`,
+    };
+
+    return NextResponse.json(response, { status: 201 });
   } catch (error) {
-    console.error('Eligibility check error:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'ELIGIBILITY_CHECK_FAILED',
-        message: error instanceof Error ? error.message : 'Internal server error during eligibility check'
-      }
-    }, { status: 500 });
+    console.error("Distribution recording error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to record distribution. Please try again.",
+        },
+      },
+      { status: 500 },
+    );
   }
 }
 
-/**
- * Store additional distribution metadata locally
- */
-async function storeDistributionMetadata(metadata: any): Promise<void> {
-  // In production, store in database
-  // For now, just log the metadata
-  console.log('Distribution metadata:', metadata);
+// Check family eligibility for aid type based on cooldown periods
+async function checkFamilyEligibility(
+  uridHash: string,
+  aidType: AidType,
+): Promise<EligibilityResult> {
+  const familyDistributions = distributionRegistry.get(uridHash) || [];
+
+  // Find the most recent distribution of this aid type
+  const recentDistributions = familyDistributions
+    .filter((dist) => dist.aidType === aidType && dist.confirmed)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  if (recentDistributions.length === 0) {
+    // No previous distributions of this type, family is eligible
+    return {
+      eligible: true,
+      timeUntilEligible: 0,
+    };
+  }
+
+  const lastDistribution = recentDistributions[0];
+  const cooldownPeriod = COOLDOWN_PERIODS[aidType];
+  const timeSinceLastDistribution = Date.now() - lastDistribution.timestamp;
+
+  if (timeSinceLastDistribution >= cooldownPeriod) {
+    // Cooldown period has passed, family is eligible
+    return {
+      eligible: true,
+      timeUntilEligible: 0,
+      lastDistribution: {
+        timestamp: lastDistribution.timestamp,
+        quantity: lastDistribution.quantity,
+        location: lastDistribution.location,
+      },
+    };
+  } else {
+    // Still in cooldown period
+    const timeUntilEligible = cooldownPeriod - timeSinceLastDistribution;
+    return {
+      eligible: false,
+      timeUntilEligible,
+      lastDistribution: {
+        timestamp: lastDistribution.timestamp,
+        quantity: lastDistribution.quantity,
+        location: lastDistribution.location,
+      },
+    };
+  }
 }
+
+// Generate unique distribution ID
+function generateDistributionId(): string {
+  const timestamp = Date.now().toString(36);
+  const random = Math.random().toString(36).substring(2, 8);
+  return `dist_${timestamp}_${random}`;
+}
+
+// GET endpoint to retrieve distribution history for a family
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const urid = searchParams.get("urid");
+    const volunteerSession = searchParams.get("volunteerSession");
+
+    if (!urid || !volunteerSession) {
+      return NextResponse.json(
+        { error: "Missing urid or volunteerSession parameter" },
+        { status: 400 },
+      );
+    }
+
+    // Verify volunteer session
+    try {
+      const jwtSecret = process.env.JWT_SECRET;
+      if (!jwtSecret) {
+        throw new Error("JWT_SECRET not configured");
+      }
+
+      const decodedSession = jwt.verify(
+        volunteerSession,
+        jwtSecret,
+      ) as VolunteerSession;
+
+      if (Date.now() > decodedSession.expiresAt) {
+        return NextResponse.json({ error: "Session expired" }, { status: 401 });
+      }
+    } catch (error) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 401 });
+    }
+
+    // Validate URID format
+    if (!URIDService.validateURID(urid)) {
+      return NextResponse.json(
+        { error: "Invalid URID format" },
+        { status: 400 },
+      );
+    }
+
+    const uridHash = URIDService.hashURID(urid);
+    const distributions = distributionRegistry.get(uridHash) || [];
+
+    // Sort by timestamp (most recent first)
+    const sortedDistributions = distributions
+      .sort((a, b) => b.timestamp - a.timestamp)
+      .map((dist) => ({
+        ...dist,
+        // Mask volunteer nullifier for privacy
+        volunteerNullifier: dist.volunteerNullifier.substring(0, 8) + "...",
+      }));
+
+    return NextResponse.json({
+      success: true,
+      distributions: sortedDistributions,
+      totalCount: sortedDistributions.length,
+    });
+  } catch (error) {
+    console.error("Distribution history retrieval error:", error);
+    return NextResponse.json(
+      { error: "Failed to retrieve distribution history" },
+      { status: 500 },
+    );
+  }
+}
+
+// Export functions for testing and other modules
+export { checkFamilyEligibility, distributionRegistry, volunteerDistributions };
