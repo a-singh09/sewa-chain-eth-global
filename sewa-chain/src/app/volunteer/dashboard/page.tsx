@@ -6,6 +6,7 @@ import { useVolunteerSession } from "@/hooks/useVolunteerSession";
 import { Page } from "@/components/PageLayout";
 import { Navbar } from "@/components/Navbar";
 import { Button } from "@worldcoin/mini-apps-ui-kit-react";
+import { WorldMapVisualization } from "@/components/WorldMapVisualization";
 import {
   UserCircleIcon,
   ClockIcon,
@@ -14,6 +15,7 @@ import {
   GiftIcon,
   ChartBarIcon,
   ArrowRightOnRectangleIcon,
+  MapIcon,
 } from "@heroicons/react/24/outline";
 import {
   getVolunteerDisplayInfo,
@@ -56,7 +58,7 @@ export default function VolunteerDashboardPage() {
 
   return (
     <Page>
-      <Page.Header className="p-0">
+      <Page.Header className="p-0 pt-safe">
         <Navbar title="Volunteer Dashboard" />
       </Page.Header>
       <Page.Main className="mobile-p">
@@ -85,7 +87,6 @@ export default function VolunteerDashboardPage() {
               </Button>
             </div>
           </div>
-
           {/* Status Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6">
             {/* Verification Status */}
@@ -127,7 +128,6 @@ export default function VolunteerDashboardPage() {
               </div>
             </div>
           </div>
-
           {/* Action Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             {/* Register Beneficiaries */}
@@ -174,9 +174,8 @@ export default function VolunteerDashboardPage() {
               </Button>
             </div>
           </div>
-
           {/* Analytics Card */}
-          <div className="bg-white rounded-lg shadow-md p-6">
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex items-center space-x-4 mb-4">
               <ChartBarIcon className="w-10 h-10 text-orange-500" />
               <div>
@@ -196,7 +195,27 @@ export default function VolunteerDashboardPage() {
               View Analytics Dashboard
             </Button>
           </div>
-
+          {/* Global Support Visualization */}
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex items-center space-x-4 mb-4">
+              <MapIcon className="w-10 h-10 text-indigo-500" />
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Global Aid Impact Map
+                </h3>
+                <p className="text-gray-600">
+                  Interactive visualization of aid distribution and your
+                  volunteer impact
+                </p>
+              </div>
+            </div>
+            <div className="flex justify-center">
+              <WorldMapVisualization
+                className="w-full max-w-full"
+                showVolunteerData={true}
+              />
+            </div>
+          </div>{" "}
           {/* Volunteer Information */}
           <div className="mt-6 bg-gray-50 rounded-lg p-4">
             <h4 className="font-semibold text-gray-800 mb-2">
