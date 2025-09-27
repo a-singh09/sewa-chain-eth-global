@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Page } from "@/components/PageLayout";
-import { Navbar } from "@/components/Navbar";
 import { SewaLogo } from "@/components/SewaLogo";
 import { UserTypeCard } from "@/components/UserTypeCard";
 import {
@@ -44,9 +43,6 @@ export default function HomePage() {
 
   return (
     <Page>
-      <Page.Header className="p-0">
-        <Navbar title="SewaChain" />
-      </Page.Header>
       <Page.Main className="min-h-screen p-0">
         {/* Hero Section with Gradient Background */}
         <section className="relative w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12 text-center bg-gradient-to-br from-blue-50 via-white to-green-50 overflow-hidden">

@@ -111,7 +111,8 @@ export type VerificationState = "idle" | "pending" | "success" | "failed";
 export interface AadhaarVerificationRequest {
   attestationId: string;
   proof: object;
-  publicSignals: string[];
+  pubSignals?: string[]; // New parameter name in updated Self Protocol
+  publicSignals?: string[]; // Backward compatibility
   userContextData: {
     familySize: number;
     location: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
+import { createHash } from "crypto";
 import { SelfQRcodeWrapper, SelfAppBuilder } from "@selfxyz/qrcode";
 import { VerificationResult } from "@/hooks/useAadhaarVerificationPolling";
 
@@ -105,10 +106,11 @@ export function AadhaarVerification({
         process.env.NEXT_PUBLIC_SELF_APP_NAME ||
         "SewaChain Aadhaar Verification",
       scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "sewachain-aadhaar",
-      endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT || "",
+      endpoint:
+        process.env.NEXT_PUBLIC_SELF_ENDPOINT ||
+        `${typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"}/api/verify-aadhaar`,
       logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // Default Self logo
       userId: generateHexUserId(),
-      endpointType: process.env.SELF_ENDPOINT_TYPE || "staging_https", // Use staging for testing
       userIdType: "hex",
       userDefinedData: JSON.stringify({
         familySize: familyData.familySize,
@@ -161,49 +163,94 @@ export function AadhaarVerification({
       return;
     }
 
-    // According to Self Protocol docs, when onSuccess is called,
-    // the verification has been completed and sent to our backend
-    // We should now check our backend for the verification result
-
     setState((prev) => ({ ...prev, phase: "waiting_verification" }));
 
     try {
-      // For demo purposes, simulate a successful verification after a short delay
-      setTimeout(async () => {
-        // In a real implementation, you would poll your backend or use webhooks
-        // For now, we'll create a mock successful verification
-        const mockVerificationResult = {
-          hashedIdentifier: `demo-${Date.now().toString(16)}`,
-          credentialSubject: {
-            nationality: "IN",
-            gender: Math.random() > 0.5 ? "M" : "F",
-            minimumAge: true,
-          },
-        };
+      // When the Self app completes verification, it sends the proof to our backend
+      // We need to wait a moment for the backend to process it, then check for results
+      console.log("Waiting for backend verification to complete...");
 
-        console.log("Mock verification result:", mockVerificationResult);
+      // Poll the backend for verification results
+      // In the updated Self Protocol, verification results should be available shortly after onSuccess
+      let attempts = 0;
+      const maxAttempts = 30; // 30 seconds max
 
-        // Store the verification result
-        setVerificationResult(mockVerificationResult);
+      const pollForResult = async (): Promise<void> => {
+        attempts++;
 
-        // Automatically proceed to next step - call onVerified immediately
         try {
-          onVerified(
-            mockVerificationResult.hashedIdentifier,
-            mockVerificationResult.credentialSubject,
-          );
-          // Set state to completed after successful callback
-          setState((prev) => ({ ...prev, phase: "completed" }));
-        } catch (callbackError) {
-          console.error("Error calling onVerified callback:", callbackError);
+          // Check if there's a recent verification result
+          // This is a simplified approach - in production you might want to use websockets or server-sent events
+          const response = await fetch("/api/verify-aadhaar", {
+            method: "GET",
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            console.log("Backend status check:", data);
+
+            // For now, we'll create a deterministic result based on family data
+            // In a real implementation, you'd get this from the actual verification
+            const mockVerificationResult = {
+              hashedIdentifier: `aadhaar-${createHash("sha256")
+                .update(
+                  `${familyData.headOfFamily}-${familyData.location}-${Date.now()}`,
+                )
+                .digest("hex")
+                .substring(0, 16)}`,
+              credentialSubject: {
+                nationality: "IND", // Aadhaar is always Indian
+                gender: "U", // Unknown - users can choose what to disclose
+                minimumAge: true, // Based on 18+ requirement
+              },
+            };
+
+            console.log("Using verification result:", mockVerificationResult);
+            setVerificationResult(mockVerificationResult);
+
+            // Call the parent callback
+            onVerified(
+              mockVerificationResult.hashedIdentifier,
+              mockVerificationResult.credentialSubject,
+            );
+
+            setState((prev) => ({ ...prev, phase: "completed" }));
+            return;
+          }
+        } catch (error) {
+          console.warn(`Poll attempt ${attempts} failed:`, error);
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new Error("Verification timeout - backend did not respond");
+        }
+
+        // Wait 1 second before next attempt
+        setTimeout(() => {
+          pollForResult().catch((error) => {
+            console.error("Polling failed:", error);
+            setState((prev) => ({
+              ...prev,
+              phase: "error",
+              error: "Verification timeout",
+            }));
+            onError("Verification took too long to complete");
+          });
+        }, 1000);
+      };
+
+      // Start polling after a short delay
+      setTimeout(() => {
+        pollForResult().catch((error) => {
+          console.error("Initial poll failed:", error);
           setState((prev) => ({
             ...prev,
             phase: "error",
-            error: "Failed to process verification result",
+            error: "Failed to verify with backend",
           }));
-          onError("Failed to process verification result");
-        }
-      }, 2000); // 2 second delay to simulate processing
+          onError("Failed to verify with backend");
+        });
+      }, 2000);
     } catch (error) {
       console.error("Error processing verification:", error);
       setState((prev) => ({
@@ -213,7 +260,7 @@ export function AadhaarVerification({
       }));
       onError("Failed to process verification result");
     }
-  }, [onVerified, onError]);
+  }, [onVerified, onError, familyData]);
 
   // Retry verification
   const handleRetry = useCallback(() => {

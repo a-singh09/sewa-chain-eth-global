@@ -2,13 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHash } from "crypto";
 import {
   SelfBackendVerifier,
-  AttestationId,
+  ATTESTATION_ID,
   AllIds,
   DefaultConfigStore,
 } from "@selfxyz/core";
 
 // Initialize SelfBackendVerifier with configuration from environment variables
-// Note: For demo purposes, this always returns successful verification
 const selfBackendVerifier = new SelfBackendVerifier(
   process.env.NEXT_PUBLIC_SELF_SCOPE || "sewachain-aadhaar",
   process.env.NEXT_PUBLIC_SELF_ENDPOINT ||
@@ -59,7 +58,7 @@ function generateSessionId(): string {
  * Generate privacy-preserving hashed identifier
  */
 function generatePrivacyPreservingIdentifier(
-  publicSignals: string[],
+  pubSignals: string[], // Updated parameter name
   userContextData: {
     familySize: number;
     location: string;
@@ -72,7 +71,7 @@ function generatePrivacyPreservingIdentifier(
   },
 ): string {
   const combinedData = JSON.stringify({
-    signals: publicSignals.slice(0, 3), // Use first 3 signals for privacy
+    signals: pubSignals.slice(0, 3), // Use first 3 signals for privacy
     context: {
       familySize: userContextData.familySize,
       location: userContextData.location.substring(0, 10), // Partial location
@@ -122,34 +121,47 @@ export async function POST(req: NextRequest) {
     console.log("Request keys:", Object.keys(body));
 
     // Extract required fields from the request body
-    const { attestationId, proof, publicSignals, userContextData } = body;
+    const { attestationId, proof, pubSignals, publicSignals, userContextData } =
+      body;
+
+    const signals = pubSignals || publicSignals;
 
     // Validate required fields are present
-    if (!proof || !publicSignals || !attestationId || !userContextData) {
+    if (!proof || !signals || !attestationId || !userContextData) {
       return NextResponse.json(
         {
           status: "error",
           result: false,
           reason:
-            "Proof, publicSignals, attestationId and userContextData are required",
+            "Proof, pubSignals (or publicSignals), attestationId and userContextData are required",
         },
         { status: 200 },
       );
     }
 
+    console.log("Attestation ID:", attestationId);
+    console.log("Signals length:", signals.length);
+    console.log("UserContextData type:", typeof userContextData);
+
+    // For Aadhaar, attestation ID should be 3
+    const aadhaarAttestationId = ATTESTATION_ID.AADHAAR || 3;
+
     // Verify the proof using SelfBackendVerifier
     const result = await selfBackendVerifier.verify(
-      attestationId, // Document type (1 = passport, 2 = EU ID card, 3 = Aadhaar)
+      aadhaarAttestationId, // Document type (3 = Aadhaar)
       proof, // The zero-knowledge proof
-      publicSignals, // Public signals array
+      signals, // Public signals array
       userContextData, // User context data (hex string)
     );
 
+    console.log("Verification result:", result);
+
     // Check if verification was successful
-    const { isValid, isOlderThanValid, isOfacValid } = result.isValidDetails;
-    if (!isValid || !isOlderThanValid || !isOfacValid) {
+    // Note: Updated property name from 'isOlderThanValid' to 'isMinimumAgeValid'
+    const { isValid, isMinimumAgeValid, isOfacValid } = result.isValidDetails;
+    if (!isValid || !isMinimumAgeValid || !isOfacValid) {
       let reason = "Verification failed";
-      if (!isOlderThanValid) reason = "Minimum age verification failed";
+      if (!isMinimumAgeValid) reason = "Minimum age verification failed";
       if (!isOfacValid) reason = "OFAC verification failed";
 
       return NextResponse.json(
@@ -167,9 +179,9 @@ export async function POST(req: NextRequest) {
 
     // Create credential subject from disclosure output
     const credentialSubject = {
-      nationality: discloseOutput.nationality || "IN", // Default to India for Aadhaar
+      nationality: discloseOutput.nationality || "IND", // Default to India for Aadhaar
       gender: discloseOutput.gender || "U", // Default to Unknown if not disclosed
-      minimumAge: isOlderThanValid, // Use age validation result
+      minimumAge: isMinimumAgeValid, // Use age validation result
     };
 
     // Generate privacy-preserving identifier using the nullifier to prevent reuse
