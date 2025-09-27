@@ -17,11 +17,11 @@ import DistributionTrackerABI from "@/abi/DistributionTracker.json";
  * Uses MiniKit's sendTransaction command for blockchain interactions
  */
 export class WorldChainContractService {
-  private static readonly URID_REGISTRY_ADDRESS =
+  private readonly URID_REGISTRY_ADDRESS =
     process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS;
-  private static readonly DISTRIBUTION_TRACKER_ADDRESS =
+  private readonly DISTRIBUTION_TRACKER_ADDRESS =
     process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS;
-  private static readonly WORLD_CHAIN_RPC =
+  private readonly WORLD_CHAIN_RPC =
     process.env.NEXT_PUBLIC_WORLD_CHAIN_RPC ||
     "https://worldchain-sepolia.g.alchemy.com/public";
 
@@ -71,7 +71,6 @@ export class WorldChainContractService {
       return {
         success: true,
         transactionHash: finalPayload.transaction_id,
-        message: "Family registration transaction submitted successfully",
       };
     } catch (error: any) {
       console.error("Error registering family:", error);
@@ -161,7 +160,6 @@ export class WorldChainContractService {
       return {
         success: true,
         transactionHash: finalPayload.transaction_id,
-        message: "Distribution recorded successfully",
       };
     } catch (error: any) {
       console.error("Error recording distribution:", error);
@@ -502,7 +500,7 @@ export class WorldChainContractService {
   /**
    * Validate configuration
    */
-  static validateConfiguration(): { valid: boolean; errors: string[] } {
+  validateConfiguration(): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     if (!this.URID_REGISTRY_ADDRESS) {
@@ -522,7 +520,7 @@ export class WorldChainContractService {
   /**
    * Get contract addresses
    */
-  static getContractAddresses() {
+  getContractAddresses() {
     return {
       uridRegistry: this.URID_REGISTRY_ADDRESS,
       distributionTracker: this.DISTRIBUTION_TRACKER_ADDRESS,

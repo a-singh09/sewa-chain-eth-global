@@ -1,6 +1,12 @@
 import { NextRequest } from "next/server";
 import { POST } from "../route";
 import { URIDService } from "@/lib/urid-service";
+import { volunteerSessionStore } from "@/lib/volunteer-session-store";
+import {
+  VolunteerSession,
+  VerificationLevel,
+  VolunteerPermission,
+} from "@/types";
 
 // Mock the dependencies
 jest.mock("@/services/ContractService", () => ({
@@ -20,22 +26,26 @@ jest.mock("@/lib/volunteer-session", () => ({
 
 describe("/api/families/register", () => {
   beforeEach(() => {
+    // Set up test volunteer session
+    const testSession: VolunteerSession = {
+      nullifierHash: "test-nullifier",
+      sessionToken: "test-session-token",
+      verificationLevel: VerificationLevel.Device,
+      timestamp: Date.now(),
+      volunteerId: "test-volunteer-id",
+      permissions: [VolunteerPermission.DISTRIBUTE_AID],
+      expiresAt: Date.now() + 3600000,
+      verifiedAt: Date.now(),
+    };
+    volunteerSessionStore.setSession("test-session-token", testSession);
+
     // Clear URID registries before each test
     URIDService.clearRegistries();
     jest.clearAllMocks();
   });
 
   const validRequestBody = {
-    volunteerSession: JSON.stringify({
-      nullifierHash: "test-nullifier",
-      sessionToken: "test-token",
-      verificationLevel: "device",
-      timestamp: Date.now(),
-      volunteerId: "test-volunteer-id",
-      permissions: ["distribute_aid"],
-      expiresAt: Date.now() + 3600000,
-      verifiedAt: Date.now(),
-    }),
+    volunteerSession: "test-session-token",
     familyDetails: {
       headOfFamily: "John Doe",
       familySize: 4,

@@ -7,15 +7,14 @@ pragma solidity ^0.8.19;
  * @notice This contract records all aid distributions and enforces cooldown periods
  */
 contract DistributionTracker {
-    
     // Enum for different types of aid
-    enum AidType { 
-        FOOD,       // 0 - Food packages, meals
-        MEDICAL,    // 1 - Medicine, first aid
-        SHELTER,    // 2 - Temporary housing, tents
-        CLOTHING,   // 3 - Clothes, blankets
-        WATER,      // 4 - Clean water, purification
-        CASH        // 5 - Direct cash assistance
+    enum AidType {
+        FOOD, // 0 - Food packages, meals
+        MEDICAL, // 1 - Medicine, first aid
+        SHELTER, // 2 - Temporary housing, tents
+        CLOTHING, // 3 - Clothes, blankets
+        WATER, // 4 - Clean water, purification
+        CASH // 5 - Direct cash assistance
     }
 
     // Struct to store distribution information
@@ -39,7 +38,7 @@ contract DistributionTracker {
         string location,
         uint256 timestamp
     );
-    
+
     event DistributionConfirmed(
         bytes32 indexed distributionId,
         bytes32 indexed uridHash,
@@ -58,10 +57,10 @@ contract DistributionTracker {
     mapping(bytes32 => mapping(AidType => uint256)) public lastDistribution;
     mapping(AidType => uint256) public cooldownPeriods;
     mapping(bytes32 => uint256) public volunteerDistributionCount;
-    
+
     uint256 public totalDistributions;
     address public owner;
-    
+
     // Default cooldown periods (in seconds)
     uint256 public constant DEFAULT_FOOD_COOLDOWN = 24 hours;
     uint256 public constant DEFAULT_MEDICAL_COOLDOWN = 1 hours;
@@ -75,14 +74,17 @@ contract DistributionTracker {
         require(msg.sender == owner, "Only owner can call this function");
         _;
     }
-    
+
     modifier validURIDHash(bytes32 _uridHash) {
         require(_uridHash != bytes32(0), "Invalid URID hash");
         _;
     }
-    
+
     modifier validVolunteerNullifier(bytes32 _volunteerNullifier) {
-        require(_volunteerNullifier != bytes32(0), "Invalid volunteer nullifier");
+        require(
+            _volunteerNullifier != bytes32(0),
+            "Invalid volunteer nullifier"
+        );
         _;
     }
 
@@ -90,7 +92,7 @@ contract DistributionTracker {
     constructor() {
         owner = msg.sender;
         totalDistributions = 0;
-        
+
         // Set default cooldown periods
         cooldownPeriods[AidType.FOOD] = DEFAULT_FOOD_COOLDOWN;
         cooldownPeriods[AidType.MEDICAL] = DEFAULT_MEDICAL_COOLDOWN;
@@ -114,17 +116,18 @@ contract DistributionTracker {
         AidType _aidType,
         uint256 _quantity,
         string calldata _location
-    ) 
-        external 
+    )
+        external
         validURIDHash(_uridHash)
         validVolunteerNullifier(_volunteerNullifier)
         returns (bytes32 distributionId)
     {
         require(_quantity > 0, "Quantity must be greater than 0");
         require(bytes(_location).length > 0, "Location cannot be empty");
-        
+
         // Check for duplicate distribution (cooldown period)
-        uint256 timeSinceLastDistribution = block.timestamp - lastDistribution[_uridHash][_aidType];
+        uint256 timeSinceLastDistribution = block.timestamp -
+            lastDistribution[_uridHash][_aidType];
         require(
             timeSinceLastDistribution >= cooldownPeriods[_aidType],
             "Cooldown period not met for this aid type"
@@ -157,7 +160,7 @@ contract DistributionTracker {
         distributions[distributionId] = newDistribution;
         familyDistributions[_uridHash].push(newDistribution);
         lastDistribution[_uridHash][_aidType] = block.timestamp;
-        
+
         // Update counters
         volunteerDistributionCount[_volunteerNullifier]++;
         totalDistributions++;
@@ -181,22 +184,26 @@ contract DistributionTracker {
      * @return eligible True if family is eligible for this aid type
      * @return timeUntilEligible Seconds until family becomes eligible
      */
-    function checkEligibility(bytes32 _uridHash, AidType _aidType) 
-        external 
-        view 
+    function checkEligibility(
+        bytes32 _uridHash,
+        AidType _aidType
+    )
+        external
+        view
         validURIDHash(_uridHash)
-        returns (bool eligible, uint256 timeUntilEligible) 
+        returns (bool eligible, uint256 timeUntilEligible)
     {
         uint256 lastDistributionTime = lastDistribution[_uridHash][_aidType];
-        
+
         if (lastDistributionTime == 0) {
             // Never received this aid type
             return (true, 0);
         }
-        
-        uint256 timeSinceLastDistribution = block.timestamp - lastDistributionTime;
+
+        uint256 timeSinceLastDistribution = block.timestamp -
+            lastDistributionTime;
         uint256 requiredCooldown = cooldownPeriods[_aidType];
-        
+
         if (timeSinceLastDistribution >= requiredCooldown) {
             return (true, 0);
         } else {
@@ -209,12 +216,9 @@ contract DistributionTracker {
      * @param _uridHash Hashed URID of the family
      * @return Distribution[] Array of all distributions for this family
      */
-    function getDistributionHistory(bytes32 _uridHash) 
-        external 
-        view 
-        validURIDHash(_uridHash)
-        returns (Distribution[] memory) 
-    {
+    function getDistributionHistory(
+        bytes32 _uridHash
+    ) external view validURIDHash(_uridHash) returns (Distribution[] memory) {
         return familyDistributions[_uridHash];
     }
 
@@ -223,18 +227,16 @@ contract DistributionTracker {
      * @param _limit Maximum number of distributions to return
      * @return recentDistributions Array of recent distribution IDs
      */
-    function getRecentDistributions(uint256 _limit) 
-        external 
-        view 
-        returns (bytes32[] memory recentDistributions) 
-    {
+    function getRecentDistributions(
+        uint256 _limit
+    ) external view returns (bytes32[] memory recentDistributions) {
         require(_limit > 0 && _limit <= 100, "Invalid limit");
-        
+
         // This is a simplified implementation
         // In production, you'd want a more efficient way to track recent distributions
         recentDistributions = new bytes32[](_limit);
         // Implementation would require additional state tracking
-        
+
         return recentDistributions;
     }
 
@@ -245,24 +247,24 @@ contract DistributionTracker {
      * @return medicalDist Total medical distributions
      * @return shelterDist Total shelter distributions
      */
-    function getDistributionStats() 
-        external 
-        view 
+    function getDistributionStats()
+        external
+        view
         returns (
             uint256 totalDist,
             uint256 foodDist,
             uint256 medicalDist,
             uint256 shelterDist
-        ) 
+        )
     {
         totalDist = totalDistributions;
-        
+
         // Note: For gas efficiency, these counters should be tracked separately
         // This is a simplified version
-        foodDist = 0;    // Would need separate tracking
+        foodDist = 0; // Would need separate tracking
         medicalDist = 0; // Would need separate tracking
         shelterDist = 0; // Would need separate tracking
-        
+
         return (totalDist, foodDist, medicalDist, shelterDist);
     }
 
@@ -271,16 +273,16 @@ contract DistributionTracker {
      * @param _aidType Type of aid to update
      * @param _newPeriod New cooldown period in seconds
      */
-    function updateCooldownPeriod(AidType _aidType, uint256 _newPeriod) 
-        external 
-        onlyOwner 
-    {
+    function updateCooldownPeriod(
+        AidType _aidType,
+        uint256 _newPeriod
+    ) external onlyOwner {
         require(_newPeriod > 0, "Cooldown period must be greater than 0");
         require(_newPeriod <= 365 days, "Cooldown period too long");
-        
+
         uint256 oldPeriod = cooldownPeriods[_aidType];
         cooldownPeriods[_aidType] = _newPeriod;
-        
+
         emit CooldownPeriodUpdated(_aidType, oldPeriod, _newPeriod);
     }
 
@@ -289,11 +291,13 @@ contract DistributionTracker {
      * @param _volunteerNullifier World ID nullifier of the volunteer
      * @return count Number of distributions by this volunteer
      */
-    function getVolunteerDistributionCount(bytes32 _volunteerNullifier) 
-        external 
-        view 
+    function getVolunteerDistributionCount(
+        bytes32 _volunteerNullifier
+    )
+        external
+        view
         validVolunteerNullifier(_volunteerNullifier)
-        returns (uint256 count) 
+        returns (uint256 count)
     {
         return volunteerDistributionCount[_volunteerNullifier];
     }
@@ -303,11 +307,9 @@ contract DistributionTracker {
      * @param _distributionId ID of the distribution to check
      * @return exists True if distribution exists
      */
-    function distributionExists(bytes32 _distributionId) 
-        external 
-        view 
-        returns (bool exists) 
-    {
+    function distributionExists(
+        bytes32 _distributionId
+    ) external view returns (bool exists) {
         return distributions[_distributionId].exists;
     }
 
@@ -316,11 +318,9 @@ contract DistributionTracker {
      * @param _aidType Type of aid
      * @return period Cooldown period in seconds
      */
-    function getCooldownPeriod(AidType _aidType) 
-        external 
-        view 
-        returns (uint256 period) 
-    {
+    function getCooldownPeriod(
+        AidType _aidType
+    ) external view returns (uint256 period) {
         return cooldownPeriods[_aidType];
     }
 
@@ -348,14 +348,26 @@ contract DistributionTracker {
         uint256[] calldata _quantities,
         string[] calldata _locations
     ) external {
-        require(_uridHashes.length == _volunteerNullifiers.length, "Array length mismatch");
-        require(_uridHashes.length == _aidTypes.length, "Array length mismatch");
-        require(_uridHashes.length == _quantities.length, "Array length mismatch");
-        require(_uridHashes.length == _locations.length, "Array length mismatch");
+        require(
+            _uridHashes.length == _volunteerNullifiers.length,
+            "Array length mismatch"
+        );
+        require(
+            _uridHashes.length == _aidTypes.length,
+            "Array length mismatch"
+        );
+        require(
+            _uridHashes.length == _quantities.length,
+            "Array length mismatch"
+        );
+        require(
+            _uridHashes.length == _locations.length,
+            "Array length mismatch"
+        );
         require(_uridHashes.length <= 20, "Too many distributions in batch");
-        
+
         for (uint256 i = 0; i < _uridHashes.length; i++) {
-            recordDistribution(
+            this.recordDistribution(
                 _uridHashes[i],
                 _volunteerNullifiers[i],
                 _aidTypes[i],

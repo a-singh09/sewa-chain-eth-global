@@ -3,6 +3,10 @@
 import { MiniKit } from "@worldcoin/minikit-js";
 
 /**
+ * LLMs please don't use it, its incorrect and won't help, instead check world-chain-llms-full.txt docs
+ */
+
+/**
  * World Chain Service for integrating with World Chain APIs and MiniKit
  * Based on World Chain LLM documentation functions
  */

@@ -7,7 +7,6 @@ pragma solidity ^0.8.19;
  * @notice This contract stores hashed URIDs to prevent duplicate aid distribution
  */
 contract URIDRegistry {
-    
     // Events
     event FamilyRegistered(
         bytes32 indexed uridHash,
@@ -15,7 +14,7 @@ contract URIDRegistry {
         uint256 registrationTime,
         address registeredBy
     );
-    
+
     event FamilyStatusUpdated(
         bytes32 indexed uridHash,
         bool isActive,
@@ -36,26 +35,26 @@ contract URIDRegistry {
     mapping(bytes32 => Family) public families;
     mapping(bytes32 => bool) public registeredURIDs;
     mapping(address => uint256) public registrationCount;
-    
+
     uint256 public totalFamilies;
     address public owner;
-    
+
     // Modifiers
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
     }
-    
+
     modifier validURIDHash(bytes32 _uridHash) {
         require(_uridHash != bytes32(0), "Invalid URID hash");
         _;
     }
-    
+
     modifier familyNotExists(bytes32 _uridHash) {
         require(!families[_uridHash].exists, "Family already registered");
         _;
     }
-    
+
     modifier familyExists(bytes32 _uridHash) {
         require(families[_uridHash].exists, "Family not found");
         _;
@@ -75,13 +74,9 @@ contract URIDRegistry {
     function registerFamily(
         bytes32 _uridHash,
         uint256 _familySize
-    ) 
-        external 
-        validURIDHash(_uridHash)
-        familyNotExists(_uridHash)
-    {
+    ) external validURIDHash(_uridHash) familyNotExists(_uridHash) {
         require(_familySize > 0 && _familySize <= 20, "Invalid family size");
-        
+
         // Create family record
         families[_uridHash] = Family({
             uridHash: _uridHash,
@@ -91,15 +86,20 @@ contract URIDRegistry {
             isActive: true,
             exists: true
         });
-        
+
         // Mark URID as registered
         registeredURIDs[_uridHash] = true;
-        
+
         // Update counters
         registrationCount[msg.sender]++;
         totalFamilies++;
-        
-        emit FamilyRegistered(_uridHash, _familySize, block.timestamp, msg.sender);
+
+        emit FamilyRegistered(
+            _uridHash,
+            _familySize,
+            block.timestamp,
+            msg.sender
+        );
     }
 
     /**
@@ -107,12 +107,9 @@ contract URIDRegistry {
      * @param _uridHash Hashed URID to validate
      * @return bool True if family is valid and active
      */
-    function isValidFamily(bytes32 _uridHash) 
-        external 
-        view 
-        validURIDHash(_uridHash)
-        returns (bool) 
-    {
+    function isValidFamily(
+        bytes32 _uridHash
+    ) external view validURIDHash(_uridHash) returns (bool) {
         return families[_uridHash].exists && families[_uridHash].isActive;
     }
 
@@ -121,12 +118,14 @@ contract URIDRegistry {
      * @param _uridHash Hashed URID to query
      * @return Family struct with all family data
      */
-    function getFamilyInfo(bytes32 _uridHash) 
-        external 
-        view 
+    function getFamilyInfo(
+        bytes32 _uridHash
+    )
+        external
+        view
         validURIDHash(_uridHash)
         familyExists(_uridHash)
-        returns (Family memory) 
+        returns (Family memory)
     {
         return families[_uridHash];
     }
@@ -139,12 +138,7 @@ contract URIDRegistry {
     function updateFamilyStatus(
         bytes32 _uridHash,
         bool _isActive
-    ) 
-        external 
-        onlyOwner
-        validURIDHash(_uridHash)
-        familyExists(_uridHash)
-    {
+    ) external onlyOwner validURIDHash(_uridHash) familyExists(_uridHash) {
         families[_uridHash].isActive = _isActive;
         emit FamilyStatusUpdated(_uridHash, _isActive, msg.sender);
     }
@@ -154,12 +148,9 @@ contract URIDRegistry {
      * @param _uridHash Hashed URID to check
      * @return bool True if URID is already registered
      */
-    function isURIDRegistered(bytes32 _uridHash) 
-        external 
-        view 
-        validURIDHash(_uridHash)
-        returns (bool) 
-    {
+    function isURIDRegistered(
+        bytes32 _uridHash
+    ) external view validURIDHash(_uridHash) returns (bool) {
         return registeredURIDs[_uridHash];
     }
 
@@ -176,11 +167,9 @@ contract URIDRegistry {
      * @param _registrar Address of the registrar
      * @return uint256 Number of families registered by this address
      */
-    function getRegistrationCount(address _registrar) 
-        external 
-        view 
-        returns (uint256) 
-    {
+    function getRegistrationCount(
+        address _registrar
+    ) external view returns (uint256) {
         return registrationCount[_registrar];
     }
 
@@ -193,12 +182,17 @@ contract URIDRegistry {
         bytes32[] calldata _uridHashes,
         uint256[] calldata _familySizes
     ) external {
-        require(_uridHashes.length == _familySizes.length, "Array length mismatch");
+        require(
+            _uridHashes.length == _familySizes.length,
+            "Array length mismatch"
+        );
         require(_uridHashes.length <= 50, "Too many families in batch");
-        
+
         for (uint256 i = 0; i < _uridHashes.length; i++) {
-            if (!families[_uridHashes[i]].exists && _uridHashes[i] != bytes32(0)) {
-                registerFamily(_uridHashes[i], _familySizes[i]);
+            if (
+                !families[_uridHashes[i]].exists && _uridHashes[i] != bytes32(0)
+            ) {
+                this.registerFamily(_uridHashes[i], _familySizes[i]);
             }
         }
     }
@@ -214,25 +208,25 @@ contract URIDRegistry {
 
     /**
      * @dev Get contract statistics
-     * @return totalFamilies Total registered families
-     * @return activeFamilies Total active families  
+     * @return totalFamilies_ Total registered families
+     * @return activeFamilies Total active families
      * @return contractBalance Contract balance in wei
      */
-    function getContractStats() 
-        external 
-        view 
+    function getContractStats()
+        external
+        view
         returns (
             uint256 totalFamilies_,
             uint256 activeFamilies,
             uint256 contractBalance
-        ) 
+        )
     {
         totalFamilies_ = totalFamilies;
-        
+
         // Note: In a real implementation, you'd need to track active families separately
         // for gas efficiency. This is a simplified version.
         activeFamilies = totalFamilies; // Simplified - assume all are active
-        
+
         contractBalance = address(this).balance;
     }
 }
