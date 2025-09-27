@@ -106,3 +106,130 @@ export interface VerifyVolunteerResponse {
 }
 
 export type VerificationState = 'idle' | 'pending' | 'success' | 'failed';
+
+// Aadhaar Verification types
+export interface AadhaarVerificationRequest {
+  attestationId: string;
+  proof: object;
+  publicSignals: string[];
+  userContextData: {
+    familySize: number;
+    location: string;
+    contactInfo: string;
+  };
+}
+
+export interface AadhaarVerificationResponse {
+  status: 'success' | 'error';
+  result: boolean;
+  hashedIdentifier?: string;
+  credentialSubject?: {
+    nationality: string;
+    gender: string;
+    minimumAge: boolean;
+  };
+  message?: string;
+}
+
+// URID types
+export interface FamilyData {
+  hashedAadhaar: string;
+  location: string;
+  familySize: number;
+  contactInfo: string;
+  registrationTimestamp: number;
+}
+
+export interface URIDGenerationResult {
+  urid: string;
+  qrCodeDataURL: string;
+  uridHash: string;
+}
+
+export interface GenerateURIDRequest {
+  hashedAadhaar: string;
+  location: string;
+  familySize: number;
+  contactInfo: string;
+  volunteerSession?: string;
+}
+
+export interface GenerateURIDResponse {
+  status: 'success' | 'error';
+  urid?: string;
+  qrCode?: string;
+  uridHash?: string;
+  contractTxHash?: string;
+  message?: string;
+}
+
+// Aid Distribution types
+export enum AidType {
+  FOOD = 'FOOD',
+  MEDICAL = 'MEDICAL',
+  SHELTER = 'SHELTER',
+  CLOTHING = 'CLOTHING',
+  WATER = 'WATER',
+  CASH = 'CASH'
+}
+
+export interface Distribution {
+  id: string;
+  uridHash: string;
+  volunteerNullifier: string;
+  aidType: AidType;
+  quantity: number;
+  location: string;
+  timestamp: number;
+  confirmed: boolean;
+}
+
+export interface DistributionRequest {
+  urid: string;
+  aidType: AidType;
+  quantity: number;
+  location: string;
+  volunteerSession: string;
+}
+
+export interface DistributionResponse {
+  success: boolean;
+  distributionId?: string;
+  transactionHash?: string;
+  error?: {
+    code: string;
+    message: string;
+  };
+}
+
+// Family Registration types
+export interface FamilyRegistrationData {
+  headOfFamily: string;
+  familySize: number;
+  location: string;
+  contactNumber: string;
+}
+
+export interface RegistrationState {
+  step: 'basic_info' | 'aadhaar_verification' | 'urid_generation' | 'complete';
+  familyData: FamilyRegistrationData;
+  hashedAadhaar?: string;
+  credentialSubject?: any;
+  urid?: string;
+  qrCode?: string;
+  error?: string;
+  isLoading?: boolean;
+}
+
+// Dashboard types
+export interface DashboardStats {
+  totalFamilies: number;
+  totalDistributions: number;
+  activeVolunteers: number;
+  recentDistributions: Array<{
+    urid: string;
+    aidType: string;
+    timestamp: number;
+    location: string;
+  }>;
+}
