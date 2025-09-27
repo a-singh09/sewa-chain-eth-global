@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContractService } from "@/services/ContractService";
 import { URIDService } from "@/lib/urid-service";
-import jwt from "jsonwebtoken";
+import { VolunteerSession } from "@/types";
+import { volunteerSessionStore } from "@/lib/volunteer-session-store";
 
 export interface ValidateFamilyResponse {
   isValid: boolean;
@@ -172,26 +173,7 @@ export async function POST(req: NextRequest) {
     if ((urid || uridHash) && !urids && !uridHashes) {
       // Verify volunteer session if provided
       if (volunteerSession) {
-        try {
-          const jwtSecret = process.env.JWT_SECRET;
-          if (!jwtSecret) {
-            throw new Error("JWT_SECRET not configured");
-          }
-
-          const decodedSession = jwt.verify(volunteerSession, jwtSecret);
-          if (Date.now() > decodedSession.expiresAt) {
-            return NextResponse.json(
-              {
-                success: false,
-                error: {
-                  code: "SESSION_EXPIRED",
-                  message: "Volunteer session has expired",
-                },
-              },
-              { status: 401 },
-            );
-          }
-        } catch (error) {
+        if (!volunteerSessionStore.isValidSession(volunteerSession)) {
           return NextResponse.json(
             {
               success: false,

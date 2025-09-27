@@ -42,6 +42,16 @@ export default function DistributeAidPage() {
 
   // Handle QR code scan
   const handleQRScan = async (urid: string) => {
+    // Ensure we have a valid volunteer session before proceeding
+    if (!volunteerSession || !volunteerSession.sessionToken) {
+      setDistributionState((prev) => ({
+        ...prev,
+        error:
+          "Volunteer session not found. Please refresh the page and try again.",
+      }));
+      return;
+    }
+
     setDistributionState((prev) => ({
       ...prev,
       phase: "validating",
@@ -51,6 +61,34 @@ export default function DistributeAidPage() {
     }));
 
     try {
+      console.log(
+        "🔍 Validating family with session token:",
+        volunteerSession.sessionToken.substring(0, 10) + "...",
+      );
+
+      // First, ensure session is restored to server store
+      console.log("🔄 Ensuring session is restored before API call...");
+      try {
+        const restoreResponse = await fetch("/api/volunteer-session/restore", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            volunteerSession: volunteerSession,
+          }),
+        });
+
+        if (restoreResponse.ok) {
+          console.log("✅ Session restored successfully before validation");
+        } else {
+          const errorData = await restoreResponse.json();
+          console.warn("⚠️ Session restoration failed:", errorData);
+        }
+      } catch (restoreError) {
+        console.warn("🌐 Session restoration network error:", restoreError);
+      }
+
       // Validate family and check eligibility for all aid types
       const response = await fetch("/api/families/validate", {
         method: "POST",
@@ -59,7 +97,7 @@ export default function DistributeAidPage() {
         },
         body: JSON.stringify({
           urid,
-          volunteerSession: volunteerSession?.sessionToken,
+          volunteerSession: volunteerSession.sessionToken,
         }),
       });
 
@@ -82,7 +120,7 @@ export default function DistributeAidPage() {
               body: JSON.stringify({
                 urid,
                 aidType,
-                volunteerSession: volunteerSession?.sessionToken,
+                volunteerSession: volunteerSession.sessionToken,
               }),
             },
           );
@@ -132,8 +170,13 @@ export default function DistributeAidPage() {
     if (
       !distributionState.scannedURID ||
       !distributionState.selectedAidType ||
-      !volunteerSession
+      !volunteerSession ||
+      !volunteerSession.sessionToken
     ) {
+      setDistributionState((prev) => ({
+        ...prev,
+        error: "Missing required information. Please try again.",
+      }));
       return;
     }
 
@@ -144,6 +187,34 @@ export default function DistributeAidPage() {
     }));
 
     try {
+      console.log(
+        "📝 Recording distribution with session token:",
+        volunteerSession.sessionToken.substring(0, 10) + "...",
+      );
+
+      // First, ensure session is restored to server store
+      console.log("🔄 Ensuring session is restored before recording...");
+      try {
+        const restoreResponse = await fetch("/api/volunteer-session/restore", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            volunteerSession: volunteerSession,
+          }),
+        });
+
+        if (restoreResponse.ok) {
+          console.log("✅ Session restored successfully before recording");
+        } else {
+          const errorData = await restoreResponse.json();
+          console.warn("⚠️ Session restoration failed:", errorData);
+        }
+      } catch (restoreError) {
+        console.warn("🌐 Session restoration network error:", restoreError);
+      }
+
       // First record in API (for immediate feedback and validation)
       const response = await fetch("/api/distributions/record", {
         method: "POST",
@@ -224,8 +295,12 @@ export default function DistributeAidPage() {
     );
   }
 
-  // Show verification form if no volunteer session
-  if (!volunteerSession) {
+  // Show verification form if no volunteer session or session token
+  if (!volunteerSession || !volunteerSession.sessionToken) {
+    console.log("No volunteer session found:", {
+      hasSession: !!volunteerSession,
+      hasToken: !!volunteerSession?.sessionToken,
+    });
     return <VolunteerVerificationRequired />;
   }
 
@@ -580,7 +655,7 @@ function VolunteerVerificationRequired() {
 
         <div className="mt-6 text-center">
           <Button
-            onClick={() => (window.location.href = "/home")}
+            onClick={() => (window.location.href = "/")}
             variant="secondary"
             className="w-full"
           >

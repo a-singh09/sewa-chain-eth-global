@@ -28,7 +28,7 @@ export default function VolunteerDashboardPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/home');
+    router.push('/');
   };
 
   if (isLoading) {

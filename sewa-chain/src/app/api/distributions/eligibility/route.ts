@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import {
   AidType,
   VolunteerSession,
@@ -8,6 +7,7 @@ import {
 } from "@/types";
 import { URIDService } from "@/lib/urid-service";
 import { distributionRegistry } from "../record/route";
+import { volunteerSessionStore } from "@/lib/volunteer-session-store";
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,33 +56,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify volunteer session
-    try {
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new Error("JWT_SECRET not configured");
-      }
-
-      const decodedSession = jwt.verify(
-        volunteerSession,
-        jwtSecret,
-      ) as VolunteerSession;
-
-      // Check if session is expired
-      if (Date.now() > decodedSession.expiresAt) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: "SESSION_EXPIRED",
-              message: "Volunteer session has expired",
-            },
-          },
-          { status: 401 },
-        );
-      }
-    } catch (error) {
-      console.error("Session verification error:", error);
+    // Verify volunteer session token
+    if (!volunteerSessionStore.isValidSession(volunteerSession)) {
+      console.error("Invalid or expired session:", volunteerSession);
       return NextResponse.json(
         {
           success: false,

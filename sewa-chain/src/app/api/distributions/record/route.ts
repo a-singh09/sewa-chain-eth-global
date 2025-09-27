@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import jwt from "jsonwebtoken";
 import {
   DistributionRequest,
   DistributionResponse,
@@ -10,6 +9,7 @@ import {
   COOLDOWN_PERIODS,
 } from "@/types";
 import { URIDService } from "@/lib/urid-service";
+import { volunteerSessionStore } from "@/lib/volunteer-session-store";
 
 // In-memory storage for demo purposes
 const distributionRegistry = new Map<string, Distribution[]>(); // uridHash -> distributions
@@ -76,34 +76,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify volunteer session
-    let decodedSession: VolunteerSession;
-    try {
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new Error("JWT_SECRET not configured");
-      }
-
-      decodedSession = jwt.verify(
-        volunteerSession,
-        jwtSecret,
-      ) as VolunteerSession;
-
-      // Check if session is expired
-      if (Date.now() > decodedSession.expiresAt) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: {
-              code: "SESSION_EXPIRED",
-              message: "Volunteer session has expired",
-            },
-          },
-          { status: 401 },
-        );
-      }
-    } catch (error) {
-      console.error("Session verification error:", error);
+    // Verify volunteer session token
+    if (!volunteerSessionStore.isValidSession(volunteerSession)) {
+      console.error("Invalid or expired session:", volunteerSession);
       return NextResponse.json(
         {
           success: false,
@@ -115,6 +90,8 @@ export async function POST(request: NextRequest) {
         { status: 401 },
       );
     }
+
+    const decodedSession = volunteerSessionStore.getSession(volunteerSession)!;
 
     // Check if family exists (URID validation)
     const familyExists = await URIDService.checkURIDExists(urid);
@@ -282,22 +259,8 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify volunteer session
-    try {
-      const jwtSecret = process.env.JWT_SECRET;
-      if (!jwtSecret) {
-        throw new Error("JWT_SECRET not configured");
-      }
-
-      const decodedSession = jwt.verify(
-        volunteerSession,
-        jwtSecret,
-      ) as VolunteerSession;
-
-      if (Date.now() > decodedSession.expiresAt) {
-        return NextResponse.json({ error: "Session expired" }, { status: 401 });
-      }
-    } catch (error) {
+    // Verify volunteer session token
+    if (!volunteerSessionStore.isValidSession(volunteerSession)) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 

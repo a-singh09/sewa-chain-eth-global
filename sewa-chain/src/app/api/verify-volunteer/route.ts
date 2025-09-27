@@ -11,10 +11,10 @@ import {
   VerificationLevel,
   VolunteerPermission,
 } from "@/types";
+import { volunteerSessionStore } from "@/lib/volunteer-session-store";
 
 // In-memory storage for demo purposes - replace with database in production
 const registeredVolunteers = new Set<string>();
-const volunteerSessions = new Map<string, VolunteerSession>();
 
 /**
  * Volunteer World ID Verification Route
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
 
     // Store volunteer registration and session
     registeredVolunteers.add(nullifierHash);
-    volunteerSessions.set(sessionToken, volunteerSession);
+    volunteerSessionStore.setSession(sessionToken, volunteerSession);
 
     console.log(`New volunteer registered: ${volunteerSession.volunteerId}`);
 

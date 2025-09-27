@@ -58,7 +58,7 @@ export default function VolunteerVerifyPage() {
           </Button>
 
           <Button
-            onClick={() => router.push("/home")}
+            onClick={() => router.push("/")}
             variant="secondary"
             className="w-full"
           >
@@ -107,7 +107,7 @@ export default function VolunteerVerifyPage() {
 
         {/* Back Button */}
         <Button
-          onClick={() => router.push("/home")}
+          onClick={() => router.push("/")}
           variant="secondary"
           className="w-full"
           disabled={isLoading}

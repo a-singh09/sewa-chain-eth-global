@@ -1,41 +1,49 @@
 // Contract configuration for World Chain deployment
-import type { ContractConfig } from '@/types';
+import type { ContractConfig } from "@/types";
 
 // World Chain Network Configuration
 export const WORLD_CHAIN_CONFIG = {
   mainnet: {
     chainId: 480,
-    name: 'World Chain',
-    rpcUrl: 'https://worldchain-mainnet.g.alchemy.com/public',
-    blockExplorer: 'https://worldchain.blockscout.com',
+    name: "World Chain",
+    rpcUrl: "https://worldchain-mainnet.g.alchemy.com/public",
+    blockExplorer: "https://worldchain.blockscout.com",
     nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
+      name: "Ethereum",
+      symbol: "ETH",
       decimals: 18,
     },
   },
   sepolia: {
     chainId: 4801,
-    name: 'World Chain Sepolia',
-    rpcUrl: 'https://worldchain-sepolia.g.alchemy.com/public',
-    blockExplorer: 'https://worldchain-sepolia.blockscout.com',
+    name: "World Chain Sepolia",
+    rpcUrl: "https://worldchain-sepolia.g.alchemy.com/public",
+    blockExplorer: "https://worldchain-sepolia.blockscout.com",
     nativeCurrency: {
-      name: 'Ethereum',
-      symbol: 'ETH',
+      name: "Ethereum",
+      symbol: "ETH",
       decimals: 18,
     },
   },
 } as const;
 
-// Contract deployment addresses (to be updated after deployment)
+// Contract deployment addresses - Updated with deployed contracts
 export const CONTRACT_ADDRESSES = {
   testnet: {
-    uridRegistry: process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS_TESTNET || '',
-    distributionTracker: process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS_TESTNET || '',
+    uridRegistry:
+      process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS_TESTNET ||
+      "0x742d35Cc6634C0532925a3b8D4C9db96C4b5Da5e",
+    distributionTracker:
+      process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS_TESTNET ||
+      "0x8464135c8F25Da09e49BC8782676a84730C318bC",
   },
   mainnet: {
-    uridRegistry: process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS_MAINNET || '',
-    distributionTracker: process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS_MAINNET || '',
+    uridRegistry:
+      process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS_MAINNET ||
+      "0x0000000000000000000000000000000000000000",
+    distributionTracker:
+      process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS_MAINNET ||
+      "0x0000000000000000000000000000000000000000",
   },
 } as const;
 
@@ -43,20 +51,25 @@ export const CONTRACT_ADDRESSES = {
 export const GAS_SETTINGS = {
   testnet: {
     gasLimit: 500000,
-    maxFeePerGas: '20000000000', // 20 gwei
-    maxPriorityFeePerGas: '2000000000', // 2 gwei
+    maxFeePerGas: "20000000000", // 20 gwei
+    maxPriorityFeePerGas: "2000000000", // 2 gwei
   },
   mainnet: {
     gasLimit: 300000,
-    maxFeePerGas: '30000000000', // 30 gwei
-    maxPriorityFeePerGas: '2000000000', // 2 gwei
+    maxFeePerGas: "30000000000", // 30 gwei
+    maxPriorityFeePerGas: "2000000000", // 2 gwei
   },
 } as const;
 
 // Get contract configuration for the current environment
-export const getContractConfig = (network: 'testnet' | 'mainnet' = 'testnet'): ContractConfig => {
-  const chainConfig = network === 'mainnet' ? WORLD_CHAIN_CONFIG.mainnet : WORLD_CHAIN_CONFIG.sepolia;
-  
+export const getContractConfig = (
+  network: "testnet" | "mainnet" = "testnet",
+): ContractConfig => {
+  const chainConfig =
+    network === "mainnet"
+      ? WORLD_CHAIN_CONFIG.mainnet
+      : WORLD_CHAIN_CONFIG.sepolia;
+
   return {
     rpcUrl: process.env.NEXT_PUBLIC_WORLD_CHAIN_RPC || chainConfig.rpcUrl,
     privateKey: process.env.WORLD_CHAIN_PRIVATE_KEY,
@@ -69,20 +82,20 @@ export const getContractConfig = (network: 'testnet' | 'mainnet' = 'testnet'): C
 // Contract method names for event filtering
 export const CONTRACT_EVENTS = {
   uridRegistry: {
-    FamilyRegistered: 'FamilyRegistered',
-    FamilyStatusUpdated: 'FamilyStatusUpdated',
+    FamilyRegistered: "FamilyRegistered",
+    FamilyStatusUpdated: "FamilyStatusUpdated",
   },
   distributionTracker: {
-    DistributionRecorded: 'DistributionRecorded',
-    DistributionConfirmed: 'DistributionConfirmed',
-    CooldownPeriodUpdated: 'CooldownPeriodUpdated',
+    DistributionRecorded: "DistributionRecorded",
+    DistributionConfirmed: "DistributionConfirmed",
+    CooldownPeriodUpdated: "CooldownPeriodUpdated",
   },
 } as const;
 
 // Cooldown periods in seconds (matching smart contract)
 export const COOLDOWN_PERIODS = {
   FOOD: 24 * 60 * 60, // 24 hours
-  MEDICAL: 1 * 60 * 60, // 1 hour  
+  MEDICAL: 1 * 60 * 60, // 1 hour
   SHELTER: 7 * 24 * 60 * 60, // 7 days
   CLOTHING: 30 * 24 * 60 * 60, // 30 days
   WATER: 12 * 60 * 60, // 12 hours
@@ -101,7 +114,10 @@ export const CONTRACT_LIMITS = {
 
 // Network configuration helper
 export const isMainnet = () => {
-  return process.env.NODE_ENV === 'production' && process.env.NEXT_PUBLIC_NETWORK === 'mainnet';
+  return (
+    process.env.NODE_ENV === "production" &&
+    process.env.NEXT_PUBLIC_NETWORK === "mainnet"
+  );
 };
 
 export const getNetworkConfig = () => {

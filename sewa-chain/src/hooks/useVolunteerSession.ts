@@ -48,12 +48,70 @@ export function useVolunteerSession(): UseVolunteerSessionReturn {
 
   // Initialize session from localStorage on mount
   useEffect(() => {
-    const storedSession = getVolunteerSession();
-    if (storedSession) {
-      setSession(storedSession);
-      setTimeRemaining(getSessionTimeRemaining(storedSession));
-    }
-    setIsLoading(false);
+    const initializeSession = async () => {
+      const storedSession = getVolunteerSession();
+      console.log("Loading volunteer session from localStorage:", {
+        hasSession: !!storedSession,
+        sessionId: storedSession?.volunteerId,
+        hasToken: !!storedSession?.sessionToken,
+        tokenPreview: storedSession?.sessionToken?.substring(0, 10) + "...",
+      });
+
+      if (storedSession) {
+        setSession(storedSession);
+        setTimeRemaining(getSessionTimeRemaining(storedSession));
+
+        // Restore session to server-side store if needed
+        console.log("🔄 Attempting to restore session to server store...");
+        try {
+          const restoreResponse = await fetch(
+            "/api/volunteer-session/restore",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                volunteerSession: storedSession,
+              }),
+            },
+          );
+
+          console.log("📡 Restore response status:", restoreResponse.status);
+
+          if (!restoreResponse.ok) {
+            const errorData = await restoreResponse.json();
+            console.error("❌ Session restoration failed:", errorData);
+            if (errorData.error?.code === "SESSION_EXPIRED") {
+              console.log(
+                "⏰ Session expired during initialization, logging out...",
+              );
+              clearVolunteerSession();
+              setSession(null);
+              setTimeRemaining(0);
+            } else {
+              console.warn(
+                "⚠️ Session restoration failed but keeping session:",
+                errorData,
+              );
+              // Don't clear session for other errors, user can retry
+            }
+          } else {
+            const successData = await restoreResponse.json();
+            console.log(
+              "✅ Session successfully restored to server store:",
+              successData,
+            );
+          }
+        } catch (error) {
+          console.error("🌐 Session restoration network error:", error);
+          // Don't clear session for network errors, user can retry
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initializeSession();
   }, []);
 
   // Update time remaining every minute
@@ -86,6 +144,34 @@ export function useVolunteerSession(): UseVolunteerSessionReturn {
       setSession(currentSession);
       setTimeRemaining(getSessionTimeRemaining(currentSession));
       setError(null);
+
+      // Ensure session is also registered in server-side store
+      // This handles the case where localStorage has the session but server store doesn't
+      try {
+        const restoreResponse = await fetch("/api/volunteer-session/restore", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            volunteerSession: currentSession,
+          }),
+        });
+
+        if (!restoreResponse.ok) {
+          const errorData = await restoreResponse.json();
+          if (errorData.error?.code === "SESSION_EXPIRED") {
+            console.log("Session expired, logging out...");
+            logout();
+          } else {
+            console.warn("Session restoration failed:", errorData);
+          }
+        } else {
+          console.log("Session restored to server store");
+        }
+      } catch (error) {
+        console.warn("Session restoration failed:", error);
+      }
     } else {
       logout();
     }

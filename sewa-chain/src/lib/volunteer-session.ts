@@ -26,12 +26,23 @@ export function storeVolunteerSession(session: VolunteerSession): void {
 export function getVolunteerSession(): VolunteerSession | null {
   try {
     const stored = localStorage.getItem(VOLUNTEER_SESSION_KEY);
-    if (!stored) return null;
+    if (!stored) {
+      console.log("No volunteer session found in localStorage");
+      return null;
+    }
 
     const session = JSON.parse(stored) as VolunteerSession;
+    console.log("Retrieved session from localStorage:", {
+      volunteerId: session.volunteerId,
+      hasToken: !!session.sessionToken,
+      tokenPreview: session.sessionToken?.substring(0, 10) + "...",
+      expiresAt: new Date(session.expiresAt).toISOString(),
+      isExpired: isSessionExpired(session),
+    });
 
     // Check if session is expired
     if (isSessionExpired(session)) {
+      console.log("Session expired, clearing from localStorage");
       clearVolunteerSession();
       return null;
     }
