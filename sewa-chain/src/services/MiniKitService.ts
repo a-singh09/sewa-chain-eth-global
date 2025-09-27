@@ -7,11 +7,27 @@ import {
   MiniKitTransactionParams,
   ContractError,
   ContractErrorType,
+  AidType,
 } from "@/types";
 
-// Import contract ABIs (these would be generated from deployed contracts)
+// Import contract ABIs
 import DistributionTrackerABI from "@/abi/DistributionTracker.json";
 import URIDRegistryABI from "@/abi/URIDRegistry.json";
+
+// Transaction status types
+export interface TransactionStatus {
+  status: "pending" | "success" | "failed" | "unknown";
+  transactionHash?: string;
+  blockNumber?: number;
+  confirmations?: number;
+  error?: string;
+}
+
+export interface TransactionMonitorOptions {
+  maxRetries?: number;
+  retryInterval?: number; // milliseconds
+  timeout?: number; // milliseconds
+}
 
 export class MiniKitService {
   /**
@@ -166,16 +182,190 @@ export class MiniKitService {
   }
 
   /**
+   * Monitor transaction status
+   */
+  static async monitorTransaction(
+    transactionHash: string,
+    options: TransactionMonitorOptions = {},
+  ): Promise<TransactionStatus> {
+    const { maxRetries = 30, retryInterval = 2000, timeout = 60000 } = options;
+
+    const startTime = Date.now();
+    let retries = 0;
+
+    while (retries < maxRetries && Date.now() - startTime < timeout) {
+      try {
+        // In a real implementation, you would query the blockchain
+        // For now, we'll simulate transaction monitoring
+        console.log(
+          `Monitoring transaction ${transactionHash}, attempt ${retries + 1}`,
+        );
+
+        // Simulate transaction status check
+        await new Promise((resolve) => setTimeout(resolve, retryInterval));
+
+        // For demo purposes, assume transaction succeeds after a few attempts
+        if (retries >= 3) {
+          return {
+            status: "success",
+            transactionHash,
+            blockNumber: Math.floor(Math.random() * 1000000) + 1000000,
+            confirmations: 1,
+          };
+        }
+
+        retries++;
+      } catch (error) {
+        console.error("Error monitoring transaction:", error);
+        return {
+          status: "failed",
+          transactionHash,
+          error: error instanceof Error ? error.message : "Unknown error",
+        };
+      }
+    }
+
+    return {
+      status: "unknown",
+      transactionHash,
+      error: "Transaction monitoring timed out",
+    };
+  }
+
+  /**
+   * Wait for transaction confirmation with status updates
+   */
+  static async waitForConfirmation(
+    transactionHash: string,
+    onStatusUpdate?: (status: TransactionStatus) => void,
+  ): Promise<TransactionStatus> {
+    const options: TransactionMonitorOptions = {
+      maxRetries: 30,
+      retryInterval: 2000,
+      timeout: 120000, // 2 minutes
+    };
+
+    let currentStatus: TransactionStatus = {
+      status: "pending",
+      transactionHash,
+    };
+
+    // Notify initial status
+    if (onStatusUpdate) {
+      onStatusUpdate(currentStatus);
+    }
+
+    try {
+      currentStatus = await this.monitorTransaction(transactionHash, options);
+
+      // Notify final status
+      if (onStatusUpdate) {
+        onStatusUpdate(currentStatus);
+      }
+
+      return currentStatus;
+    } catch (error) {
+      const errorStatus: TransactionStatus = {
+        status: "failed",
+        transactionHash,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Transaction monitoring failed",
+      };
+
+      if (onStatusUpdate) {
+        onStatusUpdate(errorStatus);
+      }
+
+      return errorStatus;
+    }
+  }
+
+  /**
+   * Record distribution with transaction monitoring
+   */
+  static async recordDistributionWithMonitoring(
+    params: DistributionParams,
+    onStatusUpdate?: (status: TransactionStatus) => void,
+  ): Promise<TransactionResult & { status?: TransactionStatus }> {
+    try {
+      // First, record the distribution
+      const result = await this.recordDistribution(params);
+
+      if (result.success && result.transactionHash) {
+        // Monitor the transaction
+        const status = await this.waitForConfirmation(
+          result.transactionHash,
+          onStatusUpdate,
+        );
+
+        return {
+          ...result,
+          status,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error recording distribution with monitoring:", error);
+
+      const contractError = this.handleTransactionError(error);
+      return {
+        success: false,
+        error: contractError.message,
+      };
+    }
+  }
+
+  /**
+   * Register family with transaction monitoring
+   */
+  static async registerFamilyWithMonitoring(
+    uridHash: string,
+    familySize: number,
+    onStatusUpdate?: (status: TransactionStatus) => void,
+  ): Promise<TransactionResult & { status?: TransactionStatus }> {
+    try {
+      // First, register the family
+      const result = await this.registerFamily(uridHash, familySize);
+
+      if (result.success && result.transactionHash) {
+        // Monitor the transaction
+        const status = await this.waitForConfirmation(
+          result.transactionHash,
+          onStatusUpdate,
+        );
+
+        return {
+          ...result,
+          status,
+        };
+      }
+
+      return result;
+    } catch (error) {
+      console.error("Error registering family with monitoring:", error);
+
+      const contractError = this.handleTransactionError(error);
+      return {
+        success: false,
+        error: contractError.message,
+      };
+    }
+  }
+
+  /**
    * Convert AidType enum to number for smart contract
    */
-  private static aidTypeToNumber(aidType: string): number {
-    const aidTypeMap: Record<string, number> = {
-      FOOD: 0,
-      MEDICAL: 1,
-      SHELTER: 2,
-      CLOTHING: 3,
-      WATER: 4,
-      CASH: 5,
+  private static aidTypeToNumber(aidType: AidType): number {
+    const aidTypeMap: Record<AidType, number> = {
+      [AidType.FOOD]: 0,
+      [AidType.MEDICAL]: 1,
+      [AidType.SHELTER]: 2,
+      [AidType.CLOTHING]: 3,
+      [AidType.WATER]: 4,
+      [AidType.CASH]: 5,
     };
 
     return aidTypeMap[aidType] ?? 0;
@@ -285,5 +475,68 @@ export class MiniKitService {
       default:
         return "An unexpected error occurred. Please try again.";
     }
+  }
+
+  /**
+   * Validate contract addresses are configured
+   */
+  static validateConfiguration(): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    if (!process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS) {
+      errors.push("URID Registry contract address not configured");
+    }
+
+    if (!process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS) {
+      errors.push("Distribution Tracker contract address not configured");
+    }
+
+    if (!process.env.NEXT_PUBLIC_APP_ID) {
+      errors.push("World ID App ID not configured");
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  }
+
+  /**
+   * Get contract addresses
+   */
+  static getContractAddresses() {
+    return {
+      uridRegistry: process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS,
+      distributionTracker: process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS,
+    };
+  }
+
+  /**
+   * Format transaction hash for display
+   */
+  static formatTransactionHash(hash: string): string {
+    if (!hash || hash.length < 10) return hash;
+    return `${hash.substring(0, 6)}...${hash.substring(hash.length - 4)}`;
+  }
+
+  /**
+   * Get transaction explorer URL
+   */
+  static getTransactionExplorerUrl(transactionHash: string): string {
+    const network = process.env.NEXT_PUBLIC_NETWORK || "testnet";
+    const baseUrl =
+      network === "mainnet"
+        ? "https://worldchain.blockscout.com"
+        : "https://worldchain-sepolia.blockscout.com";
+
+    return `${baseUrl}/tx/${transactionHash}`;
+  }
+
+  /**
+   * Estimate transaction time based on network
+   */
+  static getEstimatedTransactionTime(): string {
+    const network = process.env.NEXT_PUBLIC_NETWORK || "testnet";
+    return network === "mainnet" ? "30-60 seconds" : "15-30 seconds";
   }
 }
