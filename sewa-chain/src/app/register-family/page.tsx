@@ -4,14 +4,17 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input } from "@worldcoin/mini-apps-ui-kit-react";
 import { Page } from "@/components/PageLayout";
+import { Navbar } from "@/components/Navbar";
 import { AadhaarVerification } from "@/components/AadhaarVerification";
+
+import { MiniKit } from "@worldcoin/minikit-js";
+import QRCode from "qrcode";
 import {
-  UserIcon,
-  MapPinIcon,
-  PhoneIcon,
-  UsersIcon,
-  CheckCircleIcon,
-} from "@heroicons/react/24/outline";
+  checkMiniKitAvailability,
+  validateEnvironment,
+  generateURIDHash,
+} from "@/utils/minikit";
+import { UsersIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 
 interface FamilyRegistrationData {
   headOfFamily: string;
@@ -27,7 +30,11 @@ interface CredentialSubject {
 }
 
 interface RegistrationState {
-  step: "basic_info" | "aadhaar_verification" | "urid_generation" | "complete";
+  step:
+    | "basic_info"
+    | "aadhaar_verification"
+    | "blockchain_registration"
+    | "complete";
   familyData: FamilyRegistrationData;
   hashedAadhaar?: string;
   credentialSubject?: CredentialSubject;
@@ -35,6 +42,7 @@ interface RegistrationState {
   qrCode?: string;
   error?: string;
   isLoading?: boolean;
+  transactionHash?: string;
 }
 
 const INDIAN_STATES = [
@@ -93,7 +101,6 @@ export default function FamilyRegistrationPage() {
   const handleBasicInfoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate basic info
     const { headOfFamily, familySize, location, contactNumber } =
       registrationState.familyData;
 
@@ -141,81 +148,121 @@ export default function FamilyRegistrationPage() {
       ...prev,
       hashedAadhaar: hashedId,
       credentialSubject,
-      step: "urid_generation",
+      step: "blockchain_registration",
       isLoading: true,
       error: undefined,
     }));
 
     try {
-      // Generate URID using the Self Protocol hashed identifier
-      const response = await fetch("/api/generate-urid", {
+      // Check if World MiniKit is available
+      const miniKitCheck = checkMiniKitAvailability();
+      if (!miniKitCheck.isAvailable) {
+        throw new Error(
+          miniKitCheck.error ||
+            "World App is required for blockchain registration",
+        );
+      }
+
+      // Validate environment configuration
+      const envCheck = validateEnvironment();
+      if (!envCheck.isValid) {
+        throw new Error(`Configuration error: ${envCheck.errors.join(", ")}`);
+      }
+
+      // Generate URID hash from the Self Protocol hashed identifier
+      const uridHash = generateURIDHash(hashedId);
+
+      // Register family on blockchain using MiniKit sendTransaction
+      const { finalPayload } = await MiniKit.commandsAsync.sendTransaction({
+        transaction: [
+          {
+            address: process.env.NEXT_PUBLIC_URID_REGISTRY_ADDRESS!,
+            abi: [
+              {
+                inputs: [
+                  {
+                    internalType: "bytes32",
+                    name: "_uridHash",
+                    type: "bytes32",
+                  },
+                  {
+                    internalType: "uint256",
+                    name: "_familySize",
+                    type: "uint256",
+                  },
+                ],
+                name: "registerFamily",
+                outputs: [],
+                stateMutability: "nonpayable",
+                type: "function",
+              },
+            ],
+            functionName: "registerFamily",
+            args: [uridHash, registrationState.familyData.familySize],
+          },
+        ],
+      });
+
+      if (finalPayload.status === "error") {
+        throw new Error(`Transaction failed: ${finalPayload.error_code}`);
+      }
+
+      // Generate UUID and QR code
+      const uuid = `SEWA_${Date.now().toString(16)}_${Math.random().toString(36).substring(2, 11)}`;
+      const qrData = JSON.stringify({
+        type: "sewa_family",
+        uuid: uuid,
+        uridHash: uridHash,
+        familySize: registrationState.familyData.familySize,
+        registrationTime: Date.now(),
+      });
+
+      // Generate QR code
+      const qrCodeDataUrl = await QRCode.toDataURL(qrData);
+
+      // Store registration data in our API
+      await fetch("/api/families/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          hashedAadhaar: hashedId,
-          location: registrationState.familyData.location,
+          uuid: uuid,
+          aadhaarHash: hashedId,
+          uridHash: uridHash,
           familySize: registrationState.familyData.familySize,
-          contactInfo: registrationState.familyData.contactNumber,
-          // Include additional context for URID generation
-          verificationMethod: "self_protocol",
-          timestamp: Date.now(),
+          location: registrationState.familyData.location,
+          transactionHash: finalPayload.transaction_id,
         }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok || data.status !== "success") {
-        throw new Error(data.message || "Failed to generate URID");
-      }
-
-      console.log("URID generated successfully:", { urid: data.urid });
-
       setRegistrationState((prev) => ({
         ...prev,
-        urid: data.urid,
-        qrCode: data.qrCode,
+        urid: uuid,
+        qrCode: qrCodeDataUrl,
+        transactionHash: finalPayload.transaction_id,
         step: "complete",
         isLoading: false,
       }));
     } catch (error) {
-      console.error("URID generation error:", error);
+      console.error("Blockchain registration error:", error);
       setRegistrationState((prev) => ({
         ...prev,
         error:
           error instanceof Error
             ? error.message
-            : "Failed to generate URID. Please try again.",
+            : "Failed to register family on blockchain",
         isLoading: false,
-        step: "aadhaar_verification", // Go back to verification step on error
+        step: "aadhaar_verification",
       }));
     }
   };
 
-  const handleAadhaarVerificationError = (error: Error) => {
+  const handleAadhaarVerificationError = (error: string) => {
     console.error("Aadhaar verification error:", error);
-
-    let userFriendlyMessage = error.message;
-
-    // Provide more user-friendly error messages
-    if (
-      error.message.includes("network") ||
-      error.message.includes("timeout")
-    ) {
-      userFriendlyMessage =
-        "Network error occurred. Please check your connection and try again.";
-    } else if (error.message.includes("configuration")) {
-      userFriendlyMessage =
-        "Verification service is temporarily unavailable. Please try again later.";
-    } else if (error.message.includes("Self Protocol")) {
-      userFriendlyMessage =
-        "Self Protocol verification failed. Please ensure you have the Self app installed and try again.";
-    }
-
     setRegistrationState((prev) => ({
       ...prev,
-      error: userFriendlyMessage,
+      error: error,
       isLoading: false,
-      step: "aadhaar_verification", // Stay on verification step for retry
+      step: "aadhaar_verification",
     }));
   };
 
@@ -262,31 +309,28 @@ export default function FamilyRegistrationPage() {
       </div>
 
       <form onSubmit={handleBasicInfoSubmit} className="space-y-4">
-        {/* Head of Family */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Head of Family Name *
           </label>
           <div className="relative">
-            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            {/* <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" /> */}
             <Input
               type="text"
               value={registrationState.familyData.headOfFamily}
               onChange={(e) => updateFamilyData("headOfFamily", e.target.value)}
-              placeholder="Enter full name"
               className="pl-10 min-h-[48px] text-base touch-manipulation"
               required
             />
           </div>
         </div>
 
-        {/* Family Size */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Family Size *
           </label>
           <div className="relative">
-            <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            {/* <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" /> */}
             <Input
               type="number"
               min="1"
@@ -301,13 +345,12 @@ export default function FamilyRegistrationPage() {
           </div>
         </div>
 
-        {/* Location */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Location (State/District) *
           </label>
           <div className="relative">
-            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
+            {/* <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" /> */}
             <select
               value={registrationState.familyData.location}
               onChange={(e) => updateFamilyData("location", e.target.value)}
@@ -341,20 +384,18 @@ export default function FamilyRegistrationPage() {
           </div>
         </div>
 
-        {/* Contact Number */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Contact Number *
           </label>
           <div className="relative">
-            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
+            {/* <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" /> */}
             <Input
               type="tel"
               value={registrationState.familyData.contactNumber}
               onChange={(e) =>
                 updateFamilyData("contactNumber", e.target.value)
               }
-              placeholder="+91 XXXXXXXXXX"
               className="pl-10 min-h-[48px] text-base touch-manipulation"
               required
             />
@@ -388,15 +429,8 @@ export default function FamilyRegistrationPage() {
           Verify your identity with Self Protocol for secure, privacy-preserving
           registration
         </p>
-        <div className="mt-4 text-xs sm:text-sm text-blue-600 bg-blue-50 rounded-lg p-3">
-          <p>
-            🔒 Your Aadhaar number is never stored - only privacy-preserving
-            proofs are generated
-          </p>
-        </div>
       </div>
 
-      {/* Family Data Summary */}
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <h3 className="text-sm font-medium text-gray-900 mb-2">
           Registering Family:
@@ -419,29 +453,12 @@ export default function FamilyRegistrationPage() {
       <AadhaarVerification
         onVerified={handleAadhaarVerificationComplete}
         onError={handleAadhaarVerificationError}
-        familyData={{
-          headOfFamily: registrationState.familyData.headOfFamily,
-          familySize: registrationState.familyData.familySize,
-          location: registrationState.familyData.location,
-          contactNumber: registrationState.familyData.contactNumber,
-        }}
+        familyData={registrationState.familyData}
       />
 
       {registrationState.error && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
           <p className="text-sm text-red-700">{registrationState.error}</p>
-          <div className="mt-3">
-            <Button
-              onClick={() =>
-                setRegistrationState((prev) => ({ ...prev, error: undefined }))
-              }
-              variant="tertiary"
-              size="sm"
-              className="min-h-[40px] touch-manipulation"
-            >
-              Try Again
-            </Button>
-          </div>
         </div>
       )}
 
@@ -463,39 +480,45 @@ export default function FamilyRegistrationPage() {
     </div>
   );
 
-  const renderURIDGenerationStep = () => (
+  const renderBlockchainRegistrationStep = () => (
     <div className="space-y-6 text-center">
       <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto" />
-      <h2 className="text-2xl font-bold text-gray-900">Generating Your URID</h2>
+      <h2 className="text-2xl font-bold text-gray-900">
+        Registering on Blockchain
+      </h2>
       <p className="text-gray-600">
-        Please wait while we create your unique family identifier...
+        Please wait while we register your family on the World Chain
+        blockchain...
       </p>
+      <div className="text-sm text-blue-600 bg-blue-50 rounded-lg p-3">
+        <p>
+          🔗 This will create a permanent, tamper-proof record of your family
+          registration
+        </p>
+      </div>
     </div>
   );
 
   const renderCompleteStep = () => (
     <div className="space-y-6 text-center">
       <CheckCircleIcon className="w-16 h-16 text-green-600 mx-auto" />
-
       <h2 className="text-2xl font-bold text-gray-900">
         Registration Complete!
       </h2>
-
       <p className="text-gray-600">
-        Your family has been successfully registered with SewaChain
+        Your family has been successfully registered on SewaChain
       </p>
 
-      {/* URID Display */}
       <div className="bg-white border-2 border-gray-200 rounded-lg p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Your Unique Family ID (URID)
+          Your Family QR Code & UUID
         </h3>
 
         {registrationState.qrCode && (
           <div className="mb-4">
             <img
               src={registrationState.qrCode}
-              alt="URID QR Code"
+              alt="Family QR Code"
               className="mx-auto w-40 h-40 sm:w-48 sm:h-48"
             />
           </div>
@@ -504,69 +527,21 @@ export default function FamilyRegistrationPage() {
         <p className="text-xl sm:text-2xl font-mono font-bold text-blue-600 mb-2 break-all">
           {registrationState.urid}
         </p>
-
         <p className="text-sm text-gray-500">
-          Present this QR code or URID when receiving aid
+          Present this QR code or UUID when receiving aid
         </p>
       </div>
 
-      {/* Family Information Summary */}
-      <div className="bg-gray-50 rounded-lg p-4 text-left">
-        <h4 className="font-semibold text-gray-900 mb-2">
-          Registration Details
-        </h4>
-        <div className="space-y-1 text-sm text-gray-600">
-          <p>
-            <strong>Head of Family:</strong>{" "}
-            {registrationState.familyData.headOfFamily}
+      {registrationState.transactionHash && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+          <h4 className="font-medium text-green-900 mb-2">
+            🔗 Blockchain Transaction
+          </h4>
+          <p className="text-sm text-green-800 font-mono break-all">
+            {registrationState.transactionHash}
           </p>
-          <p>
-            <strong>Family Size:</strong>{" "}
-            {registrationState.familyData.familySize} members
-          </p>
-          <p>
-            <strong>Location:</strong> {registrationState.familyData.location}
-          </p>
-          <p>
-            <strong>Contact:</strong>{" "}
-            {registrationState.familyData.contactNumber}
-          </p>
-          <p>
-            <strong>Verification:</strong> ✓ Aadhaar Verified with Self Protocol
-          </p>
-          {registrationState.credentialSubject && (
-            <>
-              <p>
-                <strong>Nationality:</strong>{" "}
-                {registrationState.credentialSubject.nationality}
-              </p>
-              <p>
-                <strong>Age Verified:</strong>{" "}
-                {registrationState.credentialSubject.minimumAge
-                  ? "18+"
-                  : "Verified"}
-              </p>
-              <p>
-                <strong>Gender:</strong>{" "}
-                {registrationState.credentialSubject.gender}
-              </p>
-            </>
-          )}
         </div>
-      </div>
-
-      {/* Privacy Notice */}
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-        <h4 className="font-medium text-green-900 mb-2">
-          🔒 Privacy Protected
-        </h4>
-        <div className="text-sm text-green-800 space-y-1">
-          <p>✓ Your Aadhaar number was never stored or transmitted</p>
-          <p>✓ Only privacy-preserving cryptographic proofs were generated</p>
-          <p>✓ Your URID is derived from secure, hashed identifiers</p>
-          <p>✓ Self Protocol ensures zero-knowledge verification</p>
-        </div>
-      </div>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-3">
         <Button
@@ -589,11 +564,14 @@ export default function FamilyRegistrationPage() {
 
   return (
     <Page>
-      <Page.Main className="min-h-screen bg-gray-50 py-4 sm:py-8">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 sm:p-6">
+      <Page.Header className="p-0">
+        <Navbar title="Family Registration" showBackButton={true} />
+      </Page.Header>
+      <Page.Main className="min-h-screen bg-gray-50 py-4 sm:py-8 mobile-p">
+        <div className="container mx-auto">
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg card-mobile">
             {/* Progress Indicator */}
-            <div className="mb-6 sm:mb-8">
+            <div className="progress-mobile">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs sm:text-sm font-medium text-blue-600">
                   Step{" "}
@@ -601,7 +579,7 @@ export default function FamilyRegistrationPage() {
                     ? "1"
                     : registrationState.step === "aadhaar_verification"
                       ? "2"
-                      : registrationState.step === "urid_generation"
+                      : registrationState.step === "blockchain_registration"
                         ? "3"
                         : "4"}{" "}
                   of 4
@@ -611,21 +589,21 @@ export default function FamilyRegistrationPage() {
                     ? "Basic Info"
                     : registrationState.step === "aadhaar_verification"
                       ? "Verification"
-                      : registrationState.step === "urid_generation"
-                        ? "URID Generation"
+                      : registrationState.step === "blockchain_registration"
+                        ? "Blockchain"
                         : "Complete"}
                 </span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className="progress-mobile-bar">
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className="progress-mobile-fill"
                   style={{
                     width:
                       registrationState.step === "basic_info"
                         ? "25%"
                         : registrationState.step === "aadhaar_verification"
                           ? "50%"
-                          : registrationState.step === "urid_generation"
+                          : registrationState.step === "blockchain_registration"
                             ? "75%"
                             : "100%",
                   }}
@@ -637,8 +615,8 @@ export default function FamilyRegistrationPage() {
             {registrationState.step === "basic_info" && renderBasicInfoStep()}
             {registrationState.step === "aadhaar_verification" &&
               renderAadhaarVerificationStep()}
-            {registrationState.step === "urid_generation" &&
-              renderURIDGenerationStep()}
+            {registrationState.step === "blockchain_registration" &&
+              renderBlockchainRegistrationStep()}
             {registrationState.step === "complete" && renderCompleteStep()}
           </div>
         </div>

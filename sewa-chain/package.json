@@ -23,7 +23,7 @@
   },
   "dependencies": {
     "@heroicons/react": "^2.2.0",
-    "@selfxyz/core": "^1.1.0-beta.1",
+    "@selfxyz/core": "^1.1.0-beta.6",
     "@selfxyz/qrcode": "^1.0.13",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/qrcode": "^1.5.5",

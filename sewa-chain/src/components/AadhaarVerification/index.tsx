@@ -108,7 +108,7 @@ export function AadhaarVerification({
       endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT || "",
       logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // Default Self logo
       userId: generateHexUserId(),
-      endpointType: process.env.SELF_ENDPOINT_TYPE || "staging_https",
+      endpointType: process.env.SELF_ENDPOINT_TYPE || "staging_https", // Use staging for testing
       userIdType: "hex",
       userDefinedData: JSON.stringify({
         familySize: familyData.familySize,
@@ -117,10 +117,10 @@ export function AadhaarVerification({
         timestamp: Date.now(),
       }),
       disclosures: {
-        // Verification requirements (must match backend)
+        // Verification requirements (must match backend exactly for Aadhaar)
         minimumAge: 18,
-        // ofac: false,
-        // excludedCountries: [],
+        ofac: false, // Aadhaar does not support OFAC checks - must be false
+        excludedCountries: [], // No country restrictions for Aadhaar
 
         // Disclosure requests (what users reveal)
         nationality: true,

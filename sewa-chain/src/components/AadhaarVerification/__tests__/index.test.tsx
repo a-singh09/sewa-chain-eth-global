@@ -41,7 +41,7 @@ jest.mock("@selfxyz/core", () => ({
 }));
 
 describe("AadhaarVerification Component", () => {
-  const mockOnVerificationComplete = jest.fn();
+  const mockOnVerified = jest.fn();
   const mockOnError = jest.fn();
 
   beforeEach(() => {
@@ -49,12 +49,13 @@ describe("AadhaarVerification Component", () => {
   });
 
   const defaultProps = {
-    onVerificationComplete: mockOnVerificationComplete,
+    onVerified: mockOnVerified,
     onError: mockOnError,
     familyData: {
+      headOfFamily: "Test Head of Family",
       familySize: 4,
       location: "Test Location",
-      contactInfo: "+1234567890",
+      contactNumber: "+1234567890",
     },
   };
 
@@ -148,7 +149,7 @@ describe("AadhaarVerification Component", () => {
       expect(screen.getByText("✓ Gender: M")).toBeInTheDocument();
     });
 
-    expect(mockOnVerificationComplete).toHaveBeenCalled();
+    expect(mockOnVerified).toHaveBeenCalled();
   });
 
   it("handles verification error", async () => {

@@ -3,6 +3,7 @@
 import React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@worldcoin/mini-apps-ui-kit-react";
+import { SewaButton } from "@/components/CustomButton";
 import {
   HomeIcon,
   UserIcon,
@@ -39,82 +40,81 @@ export function Navbar({
   };
 
   return (
-    <nav className={`bg-white shadow-sm border-b border-gray-200 ${className}`}>
+    <nav
+      className={`bg-white shadow-sm border-b border-gray-200 safe-area-top ${className}`}
+    >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex justify-between items-center h-14 sm:h-16">
           {/* Left side - Logo/Title and Navigation */}
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             {showBackButton ? (
-              <Button
+              <button
                 onClick={handleBackClick}
-                variant="tertiary"
-                className="p-2 min-h-[40px]"
+                className="inline-flex items-center justify-center p-2 text-gray-600 bg-transparent border border-transparent rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
               >
                 ←
-              </Button>
+              </button>
             ) : (
-              <Button
+              <button
                 onClick={handleHomeClick}
-                variant="tertiary"
-                className="flex items-center space-x-2 p-2 min-h-[40px]"
+                className="inline-flex items-center justify-center space-x-2 p-2 text-gray-600 bg-transparent border border-transparent rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
               >
-                <HomeIcon className="w-5 h-5" />
+                <HomeIcon className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="hidden sm:inline">Home</span>
-              </Button>
+              </button>
             )}
 
             <div className="flex items-center">
-              <h1 className="text-xl font-bold text-gray-900">{title}</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-gray-900 truncate">
+                {title}
+              </h1>
             </div>
           </div>
 
           {/* Right side - User info and actions */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2">
             {volunteerSession ? (
               <>
                 {/* Volunteer info */}
-                <div className="hidden sm:flex items-center space-x-2 text-sm text-gray-600">
+                <div className="hidden md:flex items-center space-x-2 text-sm text-gray-600">
                   <UserIcon className="w-4 h-4" />
                   <span>{volunteerSession.volunteerId.substring(0, 8)}...</span>
                 </div>
 
                 {/* Quick actions */}
                 <div className="flex items-center space-x-1">
-                  <Button
+                  <button
                     onClick={() => router.push("/volunteer/distribute-aid")}
-                    variant="tertiary"
-                    className="p-2 min-h-[40px]"
+                    className="inline-flex items-center justify-center p-2 text-gray-600 bg-transparent border border-transparent rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
                     title="Distribute Aid"
                   >
-                    <QrCodeIcon className="w-5 h-5" />
-                  </Button>
+                    <QrCodeIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
 
-                  <Button
+                  <button
                     onClick={() => router.push("/volunteer/dashboard")}
-                    variant="tertiary"
-                    className="p-2 min-h-[40px]"
+                    className="inline-flex items-center justify-center p-2 text-gray-600 bg-transparent border border-transparent rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
                     title="Dashboard"
                   >
-                    <ChartBarIcon className="w-5 h-5" />
-                  </Button>
+                    <ChartBarIcon className="w-4 h-4 sm:w-5 sm:h-5" />
+                  </button>
 
-                  <Button
+                  <button
                     onClick={handleLogout}
-                    variant="secondary"
-                    className="text-sm px-3 py-1 min-h-[40px]"
+                    className="inline-flex items-center justify-center px-2 sm:px-3 py-1 text-xs sm:text-sm font-medium text-gray-900 bg-gray-100 border border-gray-300 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
                   >
-                    Logout
-                  </Button>
+                    <span className="hidden sm:inline">Logout</span>
+                    <span className="sm:hidden">Exit</span>
+                  </button>
                 </div>
               </>
             ) : (
-              <Button
+              <button
                 onClick={() => router.push("/auth")}
-                variant="primary"
-                className="text-sm px-4 py-2 min-h-[40px]"
+                className="inline-flex items-center justify-center px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-white bg-blue-600 border border-blue-600 rounded-lg hover:bg-blue-700 hover:border-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
               >
                 Sign In
-              </Button>
+              </button>
             )}
           </div>
         </div>
@@ -138,14 +138,13 @@ export function SimpleNavbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-4">
-            <Button
+            <button
               onClick={() => router.push("/")}
-              variant="tertiary"
-              className="flex items-center space-x-2 p-2 min-h-[40px]"
+              className="inline-flex items-center justify-center space-x-2 p-2 text-gray-600 bg-transparent border border-transparent rounded-lg hover:bg-gray-100 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all duration-200 min-h-[40px] touch-target"
             >
               <HomeIcon className="w-5 h-5" />
               <span className="font-bold text-gray-900">{title}</span>
-            </Button>
+            </button>
           </div>
         </div>
       </div>
@@ -184,16 +183,16 @@ export function BottomNavbar() {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 sm:hidden">
-      <div className="flex justify-around items-center py-2">
+    <div className="mobile-nav safe-area-bottom">
+      <div className="flex justify-around items-center">
         {navItems.map((item) => (
           <button
             key={item.path}
             onClick={() => router.push(item.path)}
-            className="flex flex-col items-center space-y-1 p-2 text-gray-600 hover:text-blue-600 transition-colors"
+            className="mobile-nav-item touch-target"
           >
-            <item.icon className="w-5 h-5" />
-            <span className="text-xs">{item.label}</span>
+            <item.icon className="mobile-nav-icon" />
+            <span className="mobile-nav-label">{item.label}</span>
           </button>
         ))}
       </div>

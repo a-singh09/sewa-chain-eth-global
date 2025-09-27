@@ -49,23 +49,23 @@ export default function HomePage() {
       </Page.Header>
       <Page.Main className="min-h-screen p-0">
         {/* Hero Section */}
-        <section className="container mx-auto px-4 py-8 text-center">
+        <section className="w-full px-4 sm:px-6 lg:px-8 py-6 sm:py-8 text-center">
           <div className="max-w-4xl mx-auto">
             {/* Logo */}
-            <div className="flex justify-center mb-8">
+            <div className="flex justify-center mb-6 sm:mb-8">
               <SewaLogo size="lg" variant="light" showText={true} />
             </div>
 
             {/* Hero Content */}
-            <div className="space-y-6 mb-12">
-              <h1 className="sewa-text-hero text-gray-900 max-w-3xl mx-auto">
+            <div className="space-y-4 sm:space-y-6 mb-8 sm:mb-12">
+              <h1 className="sewa-text-hero text-gray-900 max-w-3xl mx-auto px-2">
                 Eliminate Duplicate Aid Distribution Through{" "}
                 <span className="bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
                   Blockchain Coordination
                 </span>
               </h1>
 
-              <p className="sewa-text-subtitle max-w-2xl mx-auto">
+              <p className="sewa-text-subtitle max-w-2xl mx-auto px-4">
                 SewaChain ensures every flood relief donation reaches unique
                 families through verified identity and transparent blockchain
                 tracking on World Chain.
@@ -73,12 +73,12 @@ export default function HomePage() {
             </div>
 
             {/* User Type Selection */}
-            <div className="mb-16">
-              <h2 className="text-2xl font-semibold text-gray-900 mb-8">
+            <div className="mb-12 sm:mb-16">
+              <h2 className="text-xl sm:text-2xl font-semibold text-gray-900 mb-6 sm:mb-8 px-2">
                 Choose Your Role
               </h2>
 
-              <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 max-w-4xl mx-auto px-2">
                 <UserTypeCard
                   type="volunteer"
                   title="For Volunteers"
@@ -128,13 +128,13 @@ export default function HomePage() {
 
               {/* Call to Action */}
               {selectedUserType && (
-                <div className="mt-8 fade-in">
+                <div className="mt-6 sm:mt-8 fade-in px-2">
                   <Button
                     variant="primary"
                     size="lg"
                     onClick={handleGetStarted}
                     disabled={isLoading}
-                    className="px-8 py-3 text-lg font-semibold"
+                    className="w-full max-w-sm mx-auto min-h-[52px] px-6 py-3 text-lg font-semibold"
                   >
                     {isLoading
                       ? "Loading..."
@@ -147,19 +147,19 @@ export default function HomePage() {
         </section>
 
         {/* Feature Highlights */}
-        <section className="bg-gray-50 py-16">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+        <section className="bg-gray-50 py-12 sm:py-16">
+          <div className="w-full px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-8 sm:mb-12">
+              <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3 sm:mb-4 px-2">
                 How SewaChain Prevents Duplicate Distribution
               </h2>
-              <p className="sewa-text-subtitle max-w-2xl mx-auto">
+              <p className="sewa-text-subtitle max-w-2xl mx-auto px-4">
                 Our blockchain-powered system ensures transparent, efficient,
                 and fair aid distribution.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto">
               <DuplicatePreventionFeature animationDelay={100} />
               <BlockchainTransparencyFeature animationDelay={200} />
               <RealTimeTrackingFeature animationDelay={300} />
@@ -168,25 +168,25 @@ export default function HomePage() {
         </section>
 
         {/* Call to Action Section */}
-        <section className="py-16 bg-gradient-to-br from-blue-600 to-green-600">
-          <div className="container mx-auto px-4 text-center">
+        <section className="py-12 sm:py-16 bg-gradient-to-br from-blue-600 to-green-600">
+          <div className="w-full px-4 sm:px-6 lg:px-8 text-center">
             <div className="max-w-3xl mx-auto">
-              <h2 className="text-3xl font-bold text-white mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4 sm:mb-6 px-2">
                 Join the Future of Disaster Relief
               </h2>
-              <p className="text-xl text-blue-100 mb-8">
+              <p className="text-lg sm:text-xl text-blue-100 mb-6 sm:mb-8 px-4">
                 Be part of a transparent, efficient flood relief system that
                 ensures every donation reaches those who need it most.
               </p>
 
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center px-2">
                 {!selectedUserType ? (
                   <>
                     <Button
                       variant="secondary"
                       size="lg"
                       onClick={() => setSelectedUserType("volunteer")}
-                      className="bg-white text-blue-600 hover:bg-gray-50"
+                      className="w-full max-w-sm mx-auto min-h-[48px] px-6 py-3 bg-white text-blue-600 hover:bg-gray-50"
                     >
                       Start as Volunteer
                     </Button>
@@ -194,7 +194,7 @@ export default function HomePage() {
                       variant="tertiary"
                       size="lg"
                       onClick={() => setSelectedUserType("beneficiary")}
-                      className="border-white text-white hover:bg-white hover:text-blue-600"
+                      className="w-full max-w-sm mx-auto min-h-[48px] px-6 py-3 border-white text-white hover:bg-white hover:text-blue-600"
                     >
                       Get Aid as Beneficiary
                     </Button>
@@ -205,7 +205,7 @@ export default function HomePage() {
                     size="lg"
                     onClick={handleGetStarted}
                     disabled={isLoading}
-                    className="bg-white text-blue-600 hover:bg-gray-50"
+                    className="w-full max-w-sm mx-auto min-h-[48px] px-6 py-3 bg-white text-blue-600 hover:bg-gray-50"
                   >
                     {isLoading ? "Loading..." : "Continue with SewaChain"}
                   </Button>

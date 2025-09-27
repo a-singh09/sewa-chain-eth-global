@@ -59,24 +59,26 @@ export default function VolunteerDashboardPage() {
       <Page.Header className="p-0">
         <Navbar title="Volunteer Dashboard" />
       </Page.Header>
-      <Page.Main>
+      <Page.Main className="mobile-p">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <UserCircleIcon className="w-12 h-12 text-blue-500" />
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">
+          <div className="bg-white rounded-lg shadow-md card-mobile mb-4 sm:mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+              <div className="flex items-center space-x-3 sm:space-x-4">
+                <UserCircleIcon className="w-10 h-10 sm:w-12 sm:h-12 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h1 className="text-lg sm:text-2xl font-bold text-gray-900">
                     Volunteer Dashboard
                   </h1>
-                  <p className="text-gray-600">Welcome, {displayInfo.id}</p>
+                  <p className="text-sm sm:text-base text-gray-600 truncate">
+                    Welcome, {displayInfo.id}
+                  </p>
                 </div>
               </div>
               <Button
                 onClick={handleLogout}
                 variant="secondary"
-                className="flex items-center space-x-2"
+                className="btn-mobile flex items-center justify-center space-x-2 self-start sm:self-auto"
               >
                 <ArrowRightOnRectangleIcon className="w-4 h-4" />
                 <span>Logout</span>
@@ -85,14 +87,14 @@ export default function VolunteerDashboardPage() {
           </div>
 
           {/* Status Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 mb-4 sm:mb-6">
             {/* Verification Status */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="alert-mobile alert-mobile-success">
               <div className="flex items-center space-x-3">
-                <ShieldCheckIcon className="w-8 h-8 text-green-500" />
-                <div>
+                <ShieldCheckIcon className="w-6 h-6 sm:w-8 sm:h-8 text-green-500 flex-shrink-0" />
+                <div className="min-w-0">
                   <h3 className="font-semibold text-green-800">Verified</h3>
-                  <p className="text-sm text-green-600">
+                  <p className="text-sm text-green-600 truncate">
                     {displayInfo.verificationLevel} Level
                   </p>
                 </div>
@@ -100,12 +102,12 @@ export default function VolunteerDashboardPage() {
             </div>
 
             {/* Session Timer */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="alert-mobile alert-mobile-info">
               <div className="flex items-center space-x-3">
-                <ClockIcon className="w-8 h-8 text-blue-500" />
-                <div>
+                <ClockIcon className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
                   <h3 className="font-semibold text-blue-800">Session</h3>
-                  <p className="text-sm text-blue-600">
+                  <p className="text-sm text-blue-600 truncate">
                     {formatSessionTimeRemaining(session)}
                   </p>
                 </div>
@@ -113,10 +115,10 @@ export default function VolunteerDashboardPage() {
             </div>
 
             {/* Permissions */}
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4 sm:col-span-2 lg:col-span-1">
               <div className="flex items-center space-x-3">
-                <UsersIcon className="w-8 h-8 text-purple-500" />
-                <div>
+                <UsersIcon className="w-6 h-6 sm:w-8 sm:h-8 text-purple-500 flex-shrink-0" />
+                <div className="min-w-0">
                   <h3 className="font-semibold text-purple-800">Permissions</h3>
                   <p className="text-sm text-purple-600">
                     {displayInfo.permissions.length} granted
@@ -127,16 +129,16 @@ export default function VolunteerDashboardPage() {
           </div>
 
           {/* Action Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-4 sm:mb-6">
             {/* Register Beneficiaries */}
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center space-x-4 mb-4">
-                <UsersIcon className="w-10 h-10 text-blue-500" />
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+            <div className="bg-white rounded-lg shadow-md card-mobile hover:shadow-lg transition-shadow">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4">
+                <UsersIcon className="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                     Register Beneficiaries
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-sm sm:text-base text-gray-600">
                     Register new families with Aadhaar verification
                   </p>
                 </div>
@@ -144,21 +146,21 @@ export default function VolunteerDashboardPage() {
               <Button
                 onClick={() => router.push("/volunteer/register-beneficiary")}
                 variant="primary"
-                className="w-full"
+                className="btn-mobile btn-mobile-full"
               >
                 Start Registration
               </Button>
             </div>
 
             {/* Distribute Aid */}
-            <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-center space-x-4 mb-4">
-                <GiftIcon className="w-10 h-10 text-green-500" />
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">
+            <div className="bg-white rounded-lg shadow-md card-mobile hover:shadow-lg transition-shadow">
+              <div className="flex flex-col sm:flex-row sm:items-center space-y-3 sm:space-y-0 sm:space-x-4 mb-4">
+                <GiftIcon className="w-8 h-8 sm:w-10 sm:h-10 text-green-500 flex-shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">
                     Distribute Aid
                   </h3>
-                  <p className="text-gray-600">
+                  <p className="text-sm sm:text-base text-gray-600">
                     Scan QR codes and record aid distribution
                   </p>
                 </div>
@@ -166,7 +168,7 @@ export default function VolunteerDashboardPage() {
               <Button
                 onClick={() => router.push("/volunteer/distribute-aid")}
                 variant="primary"
-                className="w-full"
+                className="btn-mobile btn-mobile-full"
               >
                 Scan and Distribute
               </Button>

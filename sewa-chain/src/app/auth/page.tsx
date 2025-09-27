@@ -116,21 +116,21 @@ export default function AuthPage() {
         <Page.Header className="p-0">
           <Navbar title="Volunteer Auth" showBackButton={true} />
         </Page.Header>
-        <Page.Main>
+        <Page.Main className="mobile-p">
           <div className="max-w-md mx-auto">
             {/* Header */}
-            <div className="text-center mb-8">
-              <UserCircleIcon className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="text-center mb-6 sm:mb-8">
+              <UserCircleIcon className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 mx-auto mb-3 sm:mb-4" />
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                 Volunteer Authentication
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 px-2">
                 Verify your identity to become an authorized aid distributor
               </p>
             </div>
 
             {/* Info Card */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <div className="alert-mobile alert-mobile-info mb-4 sm:mb-6">
               <h3 className="font-semibold text-blue-900 mb-2">
                 What you'll get:
               </h3>
@@ -143,11 +143,11 @@ export default function AuthPage() {
             </div>
 
             {/* Auth Options */}
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               <Button
                 onClick={handleVolunteerAuth}
                 variant="primary"
-                className="w-full min-h-[44px]"
+                className="btn-mobile btn-mobile-full"
               >
                 Verify with World ID
               </Button>
@@ -155,7 +155,7 @@ export default function AuthPage() {
               <Button
                 onClick={() => router.push("/")}
                 variant="secondary"
-                className="w-full min-h-[44px]"
+                className="btn-mobile btn-mobile-full"
               >
                 Back to Home
               </Button>
@@ -178,21 +178,21 @@ export default function AuthPage() {
         <Page.Header className="p-0">
           <Navbar title="Family Registration" showBackButton={true} />
         </Page.Header>
-        <Page.Main>
+        <Page.Main className="mobile-p">
           <div className="max-w-md mx-auto">
             {/* Header */}
-            <div className="text-center mb-8">
-              <UserCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            <div className="text-center mb-6 sm:mb-8">
+              <UserCircleIcon className="w-12 h-12 sm:w-16 sm:h-16 text-green-600 mx-auto mb-3 sm:mb-4" />
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
                 Beneficiary Registration
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 px-2">
                 Register to receive aid assistance during flood relief
               </p>
             </div>
 
             {/* Info Card */}
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+            <div className="alert-mobile alert-mobile-success mb-4 sm:mb-6">
               <h3 className="font-semibold text-green-900 mb-2">
                 What you'll get:
               </h3>
@@ -205,8 +205,8 @@ export default function AuthPage() {
             </div>
 
             {/* Auth Options */}
-            <div className="space-y-4">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <div className="space-y-3 sm:space-y-4">
+              <div className="alert-mobile alert-mobile-success mb-3 sm:mb-4">
                 <p className="text-sm text-green-800">
                   <strong>Note:</strong> As a beneficiary, you can register for
                   aid assistance.
@@ -216,7 +216,7 @@ export default function AuthPage() {
               <Button
                 onClick={handleBeneficiaryAuth}
                 variant="primary"
-                className="w-full min-h-[44px]"
+                className="btn-mobile btn-mobile-full"
               >
                 Register as Beneficiary
               </Button>
@@ -224,7 +224,7 @@ export default function AuthPage() {
               <Button
                 onClick={() => router.push("/")}
                 variant="secondary"
-                className="w-full min-h-[44px]"
+                className="btn-mobile btn-mobile-full"
               >
                 Back to Home
               </Button>
