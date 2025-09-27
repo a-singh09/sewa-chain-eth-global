@@ -233,3 +233,126 @@ export interface DashboardStats {
     location: string;
   }>;
 }
+
+// Smart Contract types
+export interface ContractConfig {
+  rpcUrl: string;
+  privateKey?: string;
+  contractAddresses: {
+    uridRegistry: string;
+    distributionTracker: string;
+  };
+  gasSettings: {
+    gasLimit: number;
+    gasPrice?: string;
+    maxFeePerGas?: string;
+    maxPriorityFeePerGas?: string;
+  };
+  chainId: number;
+}
+
+export interface Family {
+  uridHash: string;
+  familySize: number;
+  registrationTime: number;
+  registeredBy: string;
+  isActive: boolean;
+  exists: boolean;
+}
+
+export interface ContractDistribution {
+  uridHash: string;
+  volunteerNullifier: string;
+  aidType: AidType;
+  timestamp: number;
+  quantity: number;
+  location: string;
+  confirmed: boolean;
+  exists: boolean;
+}
+
+export interface TransactionResult {
+  success: boolean;
+  transactionHash?: string;
+  error?: string;
+  receipt?: any;
+}
+
+export interface EligibilityResult {
+  eligible: boolean;
+  timeUntilEligible: number;
+  lastDistribution?: {
+    timestamp: number;
+    quantity: number;
+    location: string;
+  };
+}
+
+export interface ContractStats {
+  totalFamilies: number;
+  activeFamilies: number;
+  contractBalance: string;
+}
+
+export interface VolunteerStats {
+  distributionCount: number;
+  lastDistribution?: number;
+  verificationLevel: VerificationLevel;
+}
+
+export enum ContractErrorType {
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  INSUFFICIENT_FUNDS = 'INSUFFICIENT_FUNDS',
+  CONTRACT_REVERT = 'CONTRACT_REVERT',
+  TIMEOUT = 'TIMEOUT',
+  VALIDATION_FAILED = 'VALIDATION_FAILED'
+}
+
+export interface ContractError {
+  type: ContractErrorType;
+  message: string;
+  transactionHash?: string;
+  blockNumber?: number;
+  gasUsed?: number;
+  originalError?: any;
+}
+
+// Contract Service Interface
+export interface IContractService {
+  // URID Registry Operations
+  registerFamily(uridHash: string, familySize: number): Promise<TransactionResult>;
+  validateFamily(uridHash: string): Promise<boolean>;
+  getFamilyInfo(uridHash: string): Promise<Family | null>;
+  
+  // Distribution Tracker Operations
+  recordDistribution(params: DistributionParams): Promise<TransactionResult>;
+  checkEligibility(uridHash: string, aidType: AidType): Promise<EligibilityResult>;
+  getDistributionHistory(uridHash: string): Promise<ContractDistribution[]>;
+  
+  // Analytics & Statistics
+  getContractStats(): Promise<ContractStats>;
+  getVolunteerStats(nullifier: string): Promise<VolunteerStats>;
+}
+
+export interface DistributionParams {
+  uridHash: string;
+  volunteerNullifier: string;
+  aidType: AidType;
+  quantity: number;
+  location: string;
+}
+
+// Contract Provider Context
+export interface ContractContextType {
+  isConnected: boolean;
+  networkId: number;
+  contractAddresses: ContractConfig['contractAddresses'];
+  blockNumber: number;
+  gasPrice: bigint;
+  
+  // Contract operations
+  registerFamily: (params: { uridHash: string; familySize: number }) => Promise<TransactionResult>;
+  recordDistribution: (params: DistributionParams) => Promise<TransactionResult>;
+  validateFamily: (uridHash: string) => Promise<boolean>;
+  checkEligibility: (uridHash: string, aidType: AidType) => Promise<EligibilityResult>;
+}
