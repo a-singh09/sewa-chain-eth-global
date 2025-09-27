@@ -12,14 +12,16 @@ import {
 } from "@/components/FeatureHighlight";
 import { Button } from "@worldcoin/mini-apps-ui-kit-react";
 
-type UserType = "volunteer" | "beneficiary" | null;
+type UserType = "volunteer" | "beneficiary" | "ngo" | null;
 
 export default function HomePage() {
   const [selectedUserType, setSelectedUserType] = useState<UserType>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
-  const handleUserTypeSelection = (type: "volunteer" | "beneficiary") => {
+  const handleUserTypeSelection = (
+    type: "volunteer" | "beneficiary" | "ngo",
+  ) => {
     setSelectedUserType(type);
   };
 
@@ -31,8 +33,10 @@ export default function HomePage() {
       // Navigate to appropriate auth flow
       if (selectedUserType === "volunteer") {
         router.push("/auth?type=volunteer");
-      } else {
+      } else if (selectedUserType === "beneficiary") {
         router.push("/auth?type=beneficiary");
+      } else if (selectedUserType === "ngo") {
+        router.push("/auth?type=ngo");
       }
     } catch (error) {
       console.error("Navigation error:", error);
@@ -113,7 +117,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-4xl mx-auto px-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8 max-w-6xl mx-auto px-2">
                 <div
                   className={`relative group cursor-pointer transition-all duration-300 ${
                     selectedUserType === "volunteer"
@@ -267,38 +271,151 @@ export default function HomePage() {
                     </div>
                   </div>
                 </div>
+
+                {/* NGO Card */}
+                <div
+                  className={`relative group cursor-pointer transition-all duration-300 ${
+                    selectedUserType === "ngo"
+                      ? "scale-105"
+                      : "hover:scale-[1.02]"
+                  }`}
+                  onClick={() => handleUserTypeSelection("ngo")}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-indigo-500/10 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div
+                    className={`relative bg-white/80 backdrop-blur-sm border-2 rounded-2xl p-6 sm:p-8 transition-all duration-300 ${
+                      selectedUserType === "ngo"
+                        ? "border-purple-500 bg-gradient-to-br from-purple-50 to-white shadow-xl shadow-purple-500/20"
+                        : "border-gray-200 hover:border-purple-300 hover:shadow-lg"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between mb-4">
+                      <div
+                        className={`p-3 rounded-xl transition-colors duration-300 ${
+                          selectedUserType === "ngo"
+                            ? "bg-gradient-to-br from-purple-500 to-purple-600 text-white"
+                            : "bg-purple-100 text-purple-600"
+                        }`}
+                      >
+                        <svg
+                          className="w-6 h-6"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                          />
+                        </svg>
+                      </div>
+                      {selectedUserType === "ngo" && (
+                        <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center">
+                          <svg
+                            className="w-4 h-4 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={3}
+                              d="M5 13l4 4L19 7"
+                            />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    <h3 className="text-xl font-bold text-gray-900 mb-3">
+                      For NGOs
+                    </h3>
+                    <p className="text-gray-600 leading-relaxed">
+                      Manage and monitor aid distribution operations with
+                      comprehensive analytics, volunteer oversight, and impact
+                      tracking.
+                    </p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
+                        Monitor
+                      </span>
+                      <span className="px-2 py-1 bg-indigo-100 text-indigo-700 text-xs rounded-full font-medium">
+                        Analytics
+                      </span>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                        Oversee
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {/* Enhanced Call to Action */}
               {selectedUserType && (
                 <div className="mt-8 sm:mt-10 fade-in px-2">
                   <div className="relative group">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-600 rounded-2xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity duration-300"></div>
+                    <div
+                      className={`absolute inset-0 rounded-2xl blur-lg opacity-25 group-hover:opacity-40 transition-opacity duration-300 ${
+                        selectedUserType === "ngo"
+                          ? "bg-gradient-to-r from-purple-600 to-indigo-600"
+                          : "bg-gradient-to-r from-blue-600 to-green-600"
+                      }`}
+                    ></div>
                     <Button
                       variant="primary"
                       size="lg"
                       onClick={handleGetStarted}
                       disabled={isLoading}
-                      className="relative w-full max-w-sm mx-auto min-h-[56px] px-8 py-4 text-lg font-semibold bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700 text-white border-0 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02]"
+                      className={`force-white-text relative w-full max-w-sm mx-auto min-h-[56px] px-8 py-4 text-lg font-semibold !text-white border-0 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-[1.02] ${
+                        selectedUserType === "ngo"
+                          ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                          : "bg-gradient-to-r from-blue-600 to-green-600 hover:from-blue-700 hover:to-green-700"
+                      }`}
+                      style={{
+                        color: "white !important",
+                        backgroundColor:
+                          selectedUserType === "ngo"
+                            ? "rgb(147 51 234)"
+                            : "rgb(37 99 235)",
+                      }}
                     >
                       {isLoading ? (
-                        <div className="flex items-center justify-center">
+                        <div
+                          className="flex items-center justify-center !text-white"
+                          style={{ color: "white" }}
+                        >
                           <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                          Loading...
+                          <span
+                            className="!text-white font-semibold"
+                            style={{ color: "white !important" }}
+                          >
+                            Loading...
+                          </span>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-center">
-                          <span>
+                        <div
+                          className="flex items-center justify-center"
+                          style={{ color: "white" }}
+                        >
+                          <span
+                            className="!text-white font-semibold"
+                            style={{ color: "white !important" }}
+                          >
                             Get Started as{" "}
                             {selectedUserType === "volunteer"
                               ? "Volunteer"
-                              : "Beneficiary"}
+                              : selectedUserType === "beneficiary"
+                                ? "Beneficiary"
+                                : "NGO"}
                           </span>
                           <svg
-                            className="w-5 h-5 ml-2"
+                            className="w-5 h-5 ml-2 !text-white"
                             fill="none"
-                            stroke="currentColor"
+                            stroke="white"
                             viewBox="0 0 24 24"
+                            style={{ color: "white" }}
                           >
                             <path
                               strokeLinecap="round"

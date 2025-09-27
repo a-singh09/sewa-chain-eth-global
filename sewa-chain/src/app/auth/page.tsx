@@ -36,6 +36,11 @@ export default function AuthPage() {
     router.push("/register-family");
   };
 
+  const handleNGOAuth = () => {
+    // Navigate to NGO dashboard (in a real app, this would have proper auth)
+    router.push("/ngo/dashboard");
+  };
+
   // Show loading state
   if (isLoading) {
     return (
@@ -68,9 +73,15 @@ export default function AuthPage() {
           <Button
             onClick={() => router.push("/volunteer/dashboard")}
             variant="primary"
-            className="w-full mb-4"
+            className="force-white-text w-full mb-4 !text-white"
+            style={{ color: "white !important" }}
           >
-            Go to Dashboard
+            <span
+              className="!text-white font-semibold"
+              style={{ color: "white !important" }}
+            >
+              Go to Dashboard
+            </span>
           </Button>
 
           <Button
@@ -100,8 +111,18 @@ export default function AuthPage() {
               Invalid Request
             </h2>
             <p className="text-gray-600 mb-4">No user type specified</p>
-            <Button onClick={() => router.push("/")} variant="primary">
-              Return to Home
+            <Button
+              onClick={() => router.push("/")}
+              variant="primary"
+              className="force-white-text !text-white"
+              style={{ color: "white !important" }}
+            >
+              <span
+                className="!text-white font-semibold"
+                style={{ color: "white !important" }}
+              >
+                Return to Home
+              </span>
             </Button>
           </div>
         </div>
@@ -147,9 +168,15 @@ export default function AuthPage() {
               <Button
                 onClick={handleVolunteerAuth}
                 variant="primary"
-                className="btn-mobile btn-mobile-full"
+                className="force-white-text btn-mobile btn-mobile-full !text-white"
+                style={{ color: "white !important" }}
               >
-                Verify with World ID
+                <span
+                  className="!text-white font-semibold"
+                  style={{ color: "white !important" }}
+                >
+                  Verify with World ID
+                </span>
               </Button>
 
               <Button
@@ -216,9 +243,15 @@ export default function AuthPage() {
               <Button
                 onClick={handleBeneficiaryAuth}
                 variant="primary"
-                className="btn-mobile btn-mobile-full"
+                className="force-white-text btn-mobile btn-mobile-full !text-white"
+                style={{ color: "white !important" }}
               >
-                Register as Beneficiary
+                <span
+                  className="!text-white font-semibold"
+                  style={{ color: "white !important" }}
+                >
+                  Register as Beneficiary
+                </span>
               </Button>
 
               <Button
@@ -227,6 +260,71 @@ export default function AuthPage() {
                 className="btn-mobile btn-mobile-full"
               >
                 Back to Home
+              </Button>
+            </div>
+          </div>
+        </Page.Main>
+      </Page>
+    );
+  } else if (userType === "ngo") {
+    return (
+      <Page>
+        <Page.Header className="p-0">
+          <Navbar title="NGO Access" showBackButton={true} />
+        </Page.Header>
+        <Page.Main className="flex-1 flex flex-col justify-center items-center p-6 bg-gradient-to-br from-purple-50 to-indigo-50">
+          <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full border border-purple-100">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
+                  />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                NGO Dashboard Access
+              </h2>
+              <p className="text-gray-600 text-sm">
+                Access comprehensive analytics and volunteer management
+              </p>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                As an NGO, you can:
+              </h3>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li>• Monitor global aid distribution impact</li>
+                <li>• Track volunteer performance and verification</li>
+                <li>• Analyze fund allocation efficiency</li>
+                <li>• Identify areas needing more support</li>
+                <li>• Generate comprehensive impact reports</li>
+              </ul>
+            </div>
+
+            <div className="space-y-4">
+              <Button
+                variant="primary"
+                size="lg"
+                className="force-white-text w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 !text-white"
+                style={{ color: "white !important" }}
+                onClick={handleNGOAuth}
+              >
+                <span
+                  className="!text-white font-semibold"
+                  style={{ color: "white !important" }}
+                >
+                  Access NGO Dashboard
+                </span>
               </Button>
             </div>
           </div>
@@ -246,8 +344,18 @@ export default function AuthPage() {
             <p className="text-gray-600 mb-4">
               Please select a valid user type
             </p>
-            <Button onClick={() => router.push("/")} variant="primary">
-              Return to Home
+            <Button
+              onClick={() => router.push("/")}
+              variant="primary"
+              className="force-white-text !text-white"
+              style={{ color: "white !important" }}
+            >
+              <span
+                className="!text-white font-semibold"
+                style={{ color: "white !important" }}
+              >
+                Return to Home
+              </span>
             </Button>
           </div>
         </div>
