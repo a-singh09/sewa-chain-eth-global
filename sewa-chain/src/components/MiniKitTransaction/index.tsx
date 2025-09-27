@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import { MiniKit } from '@worldcoin/minikit-js';
-import { Button } from '@worldcoin/mini-apps-ui-kit-react';
-import { CheckIcon, XMarkIcon } from '@heroicons/react/24/outline';
-import { DistributionParams, AidType } from '@/types';
+import React, { useState } from "react";
+import { MiniKit } from "@worldcoin/minikit-js";
+import { Button } from "@worldcoin/mini-apps-ui-kit-react";
+import { CheckIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { DistributionParams, AidType } from "@/types";
 
 interface MiniKitTransactionProps {
   distribution: DistributionParams;
@@ -13,76 +13,93 @@ interface MiniKitTransactionProps {
   onError: (error: string) => void;
 }
 
-export function MiniKitTransaction({ 
-  distribution, 
-  volunteerNullifier, 
-  onSuccess, 
-  onError 
+export function MiniKitTransaction({
+  distribution,
+  volunteerNullifier,
+  onSuccess,
+  onError,
 }: MiniKitTransactionProps) {
-  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
-  const [transactionHash, setTransactionHash] = useState<string>('');
+  const [status, setStatus] = useState<
+    "idle" | "processing" | "success" | "error"
+  >("idle");
+  const [transactionHash, setTransactionHash] = useState<string>("");
 
   const handleBlockchainTransaction = async () => {
     try {
-      setStatus('processing');
-      
+      setStatus("processing");
+
       // Check MiniKit availability
       if (!MiniKit.isInstalled()) {
-        throw new Error('World App is required for blockchain transactions');
+        throw new Error("World App is required for blockchain transactions");
       }
 
       // Get contract addresses and ABI
-      const contractAddress = process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS;
+      const contractAddress =
+        process.env.NEXT_PUBLIC_DISTRIBUTION_TRACKER_ADDRESS;
       if (!contractAddress) {
-        throw new Error('Contract address not configured');
+        throw new Error("Contract address not configured");
       }
 
       // Prepare transaction parameters
       const transactionParams = {
-        transaction: [{
-          address: contractAddress,
-          abi: [
-            {
-              "inputs": [
-                {"internalType": "bytes32", "name": "_uridHash", "type": "bytes32"},
-                {"internalType": "bytes32", "name": "_volunteerNullifier", "type": "bytes32"},
-                {"internalType": "uint8", "name": "_aidType", "type": "uint8"},
-                {"internalType": "uint256", "name": "_quantity", "type": "uint256"},
-                {"internalType": "string", "name": "_location", "type": "string"}
-              ],
-              "name": "recordDistribution",
-              "outputs": [],
-              "stateMutability": "nonpayable",
-              "type": "function"
-            }
-          ],
-          functionName: 'recordDistribution',
-          args: [
-            distribution.uridHash,
-            volunteerNullifier,
-            getAidTypeValue(distribution.aidType),
-            distribution.quantity,
-            distribution.location
-          ]
-        }]
+        transaction: [
+          {
+            address: contractAddress,
+            abi: [
+              {
+                inputs: [
+                  {
+                    internalType: "bytes32",
+                    name: "_uridHash",
+                    type: "bytes32",
+                  },
+                  {
+                    internalType: "bytes32",
+                    name: "_volunteerNullifier",
+                    type: "bytes32",
+                  },
+                  { internalType: "uint8", name: "_aidType", type: "uint8" },
+                  {
+                    internalType: "uint256",
+                    name: "_quantity",
+                    type: "uint256",
+                  },
+                  { internalType: "string", name: "_location", type: "string" },
+                ],
+                name: "recordDistribution",
+                outputs: [],
+                stateMutability: "nonpayable",
+                type: "function",
+              },
+            ],
+            functionName: "recordDistribution",
+            args: [
+              distribution.uridHash,
+              volunteerNullifier,
+              getAidTypeValue(distribution.aidType),
+              distribution.quantity,
+              distribution.location,
+            ],
+          },
+        ],
       };
 
       // Execute transaction via MiniKit
-      const { finalPayload } = await MiniKit.commandsAsync.sendTransaction(transactionParams);
-      
-      if (finalPayload.status !== 'success') {
-        throw new Error('Transaction was cancelled or failed');
+      const { finalPayload } =
+        await MiniKit.commandsAsync.sendTransaction(transactionParams);
+
+      if (finalPayload.status !== "success") {
+        throw new Error("Transaction was cancelled or failed");
       }
 
       const txHash = finalPayload.transaction_hash;
       setTransactionHash(txHash);
-      setStatus('success');
+      setStatus("success");
       onSuccess(txHash);
-
     } catch (error) {
-      console.error('Blockchain transaction error:', error);
-      setStatus('error');
-      onError(error instanceof Error ? error.message : 'Transaction failed');
+      console.error("Blockchain transaction error:", error);
+      setStatus("error");
+      onError(error instanceof Error ? error.message : "Transaction failed");
     }
   };
 
@@ -100,25 +117,25 @@ export function MiniKitTransaction({
 
   const getButtonText = () => {
     switch (status) {
-      case 'processing':
-        return 'Recording on Blockchain...';
-      case 'success':
-        return 'Distribution Recorded!';
-      case 'error':
-        return 'Transaction Failed';
+      case "processing":
+        return "Recording on Blockchain...";
+      case "success":
+        return "Distribution Recorded!";
+      case "error":
+        return "Transaction Failed";
       default:
-        return 'Record Distribution';
+        return "Record Distribution";
     }
   };
 
   const getButtonVariant = () => {
     switch (status) {
-      case 'success':
-        return 'success' as const;
-      case 'error':
-        return 'error' as const;
+      case "success":
+        return "success" as const;
+      case "error":
+        return "error" as const;
       default:
-        return 'primary' as const;
+        return "primary" as const;
     }
   };
 
@@ -126,17 +143,17 @@ export function MiniKitTransaction({
     <div className="space-y-4">
       <Button
         onClick={handleBlockchainTransaction}
-        disabled={status === 'processing' || status === 'success'}
-        loading={status === 'processing'}
+        disabled={status === "processing" || status === "success"}
+        loading={status === "processing" ? "true" : "false"}
         variant={getButtonVariant()}
         className="w-full flex items-center justify-center space-x-2"
       >
-        {status === 'success' && <CheckIcon className="w-5 h-5" />}
-        {status === 'error' && <XMarkIcon className="w-5 h-5" />}
+        {status === "success" && <CheckIcon className="w-5 h-5" />}
+        {status === "error" && <XMarkIcon className="w-5 h-5" />}
         <span>{getButtonText()}</span>
       </Button>
 
-      {status === 'success' && transactionHash && (
+      {status === "success" && transactionHash && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
           <p className="text-sm text-green-800 font-medium mb-1">
             Distribution successfully recorded on blockchain

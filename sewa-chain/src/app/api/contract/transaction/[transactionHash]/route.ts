@@ -14,10 +14,10 @@ const mockTransactions = new Map<
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { transactionHash: string } },
+  { params }: { params: Promise<{ transactionHash: string }> },
 ) {
   try {
-    const { transactionHash } = params;
+    const { transactionHash } = await params;
 
     if (!transactionHash) {
       return NextResponse.json(

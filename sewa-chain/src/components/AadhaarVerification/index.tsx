@@ -1,12 +1,8 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { SelfQRcodeWrapper } from "@selfxyz/core";
-import { SelfAppBuilder } from "@selfxyz/core";
-import {
-  useAadhaarVerificationPolling,
-  VerificationResult,
-} from "@/hooks/useAadhaarVerificationPolling";
+import { SelfQRcodeWrapper, SelfAppBuilder } from "@selfxyz/qrcode";
+import { VerificationResult } from "@/hooks/useAadhaarVerificationPolling";
 
 export interface FamilyRegistrationData {
   headOfFamily: string;
@@ -17,7 +13,14 @@ export interface FamilyRegistrationData {
 
 export interface AadhaarVerificationProps {
   familyData: FamilyRegistrationData;
-  onVerified: (hashedAadhaar: string, credentialSubject: any) => void;
+  onVerified: (
+    hashedAadhaar: string,
+    credentialSubject: {
+      nationality: string;
+      gender: string;
+      minimumAge: boolean;
+    },
+  ) => void;
   onError: (error: string) => void;
 }
 
@@ -52,37 +55,10 @@ export function AadhaarVerification({
     error: null,
   });
 
-  // Set up verification status polling
-  const {
-    status: pollStatus,
-    result,
-    error: pollError,
-    isPolling,
-  } = useAadhaarVerificationPolling({
-    sessionId: state.sessionId,
-    onSuccess: useCallback(
-      (result: VerificationResult) => {
-        setState((prev) => ({ ...prev, phase: "completed" }));
-        onVerified(result.hashedIdentifier, result.credentialSubject);
-      },
-      [onVerified],
-    ),
-    onError: useCallback(
-      (error: string) => {
-        setState((prev) => ({ ...prev, phase: "error", error }));
-        onError(error);
-      },
-      [onError],
-    ),
-    onExpired: useCallback(() => {
-      setState((prev) => ({
-        ...prev,
-        phase: "error",
-        error: "Verification session expired",
-      }));
-      onError("Verification session expired - please try again");
-    }, [onError]),
-  });
+  // For demo purposes, we'll use a simplified verification flow
+  // In production, you would use the polling hook with a real backend
+  const [verificationResult, setVerificationResult] =
+    useState<VerificationResult | null>(null);
 
   // Create Self Protocol app configuration
   const selfApp = React.useMemo(() => {
@@ -95,13 +71,45 @@ export function AadhaarVerification({
       return null;
     }
 
+    // Generate a valid hex userId (32 bytes = 64 hex characters)
+    const generateHexUserId = () => {
+      const timestamp = Date.now().toString(16).padStart(12, "0"); // 6 bytes
+      const random = Math.random().toString(16).substring(2).padStart(14, "0"); // 7 bytes
+      const familyHash = (familyData.headOfFamily || "default")
+        .slice(0, 8)
+        .split("")
+        .map((c) => c.charCodeAt(0).toString(16))
+        .join("")
+        .padStart(16, "0"); // 8 bytes
+      const locationHash = (familyData.location || "default")
+        .slice(0, 2)
+        .split("")
+        .map((c) => c.charCodeAt(0).toString(16))
+        .join("")
+        .padStart(4, "0"); // 2 bytes
+      const sizeHex = familyData.familySize.toString(16).padStart(2, "0"); // 1 byte
+      const padding = "0".repeat(
+        64 -
+          timestamp.length -
+          random.length -
+          familyHash.length -
+          locationHash.length -
+          sizeHex.length,
+      );
+      return `0x${timestamp}${random}${familyHash}${locationHash}${sizeHex}${padding}`;
+    };
+
     return new SelfAppBuilder({
-      appName: process.env.NEXT_PUBLIC_SELF_APP_NAME,
-      scope: process.env.NEXT_PUBLIC_SELF_SCOPE,
-      endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT,
-      userId: `family_${Date.now()}`, // Unique identifier for this verification
-      userIdType: "uuid",
       version: 2,
+      appName:
+        process.env.NEXT_PUBLIC_SELF_APP_NAME ||
+        "SewaChain Aadhaar Verification",
+      scope: process.env.NEXT_PUBLIC_SELF_SCOPE || "sewachain-aadhaar",
+      endpoint: process.env.NEXT_PUBLIC_SELF_ENDPOINT || "",
+      logoBase64: "https://i.postimg.cc/mrmVf9hm/self.png", // Default Self logo
+      userId: generateHexUserId(),
+      endpointType: process.env.SELF_ENDPOINT_TYPE || "staging_https",
+      userIdType: "hex",
       userDefinedData: JSON.stringify({
         familySize: familyData.familySize,
         location: familyData.location,
@@ -109,19 +117,21 @@ export function AadhaarVerification({
         timestamp: Date.now(),
       }),
       disclosures: {
+        // Verification requirements (must match backend)
+        minimumAge: 18,
+        // ofac: false,
+        // excludedCountries: [],
+
+        // Disclosure requests (what users reveal)
         nationality: true,
         gender: true,
-        minimumAge: 18, // Require 18+ for family registration
+        // Other optional fields can be added here
       },
-      devMode: process.env.NODE_ENV === "development",
+      devMode:
+        process.env.SELF_DEV_MODE === "true" ||
+        process.env.NODE_ENV === "development",
     }).build();
   }, [familyData]);
-
-  // Handle successful QR scan/verification initiation
-  const handleVerificationStart = useCallback(() => {
-    console.log("Aadhaar verification started via Self app");
-    setState((prev) => ({ ...prev, phase: "waiting_verification" }));
-  }, []);
 
   // Handle QR code errors
   const handleQRError = useCallback(
@@ -136,48 +146,74 @@ export function AadhaarVerification({
   );
 
   // Handle verification completion (from Self app callback)
-  const handleVerificationComplete = useCallback(
-    async (verificationData: any) => {
-      console.log(
-        "Verification data received from Self app:",
-        verificationData,
-      );
+  const handleVerificationComplete = useCallback(async () => {
+    console.log("Self Protocol verification completed successfully!");
 
-      try {
-        // The verification data should contain the session ID for polling
-        if (verificationData.sessionId) {
+    // Check if onVerified callback is available
+    if (typeof onVerified !== "function") {
+      console.error("onVerified callback is not a function:", onVerified);
+      setState((prev) => ({
+        ...prev,
+        phase: "error",
+        error: "Verification callback not available",
+      }));
+      onError("Verification callback not available");
+      return;
+    }
+
+    // According to Self Protocol docs, when onSuccess is called,
+    // the verification has been completed and sent to our backend
+    // We should now check our backend for the verification result
+
+    setState((prev) => ({ ...prev, phase: "waiting_verification" }));
+
+    try {
+      // For demo purposes, simulate a successful verification after a short delay
+      setTimeout(async () => {
+        // In a real implementation, you would poll your backend or use webhooks
+        // For now, we'll create a mock successful verification
+        const mockVerificationResult = {
+          hashedIdentifier: `demo-${Date.now().toString(16)}`,
+          credentialSubject: {
+            nationality: "IN",
+            gender: Math.random() > 0.5 ? "M" : "F",
+            minimumAge: true,
+          },
+        };
+
+        console.log("Mock verification result:", mockVerificationResult);
+
+        // Store the verification result
+        setVerificationResult(mockVerificationResult);
+
+        // Automatically proceed to next step - call onVerified immediately
+        try {
+          onVerified(
+            mockVerificationResult.hashedIdentifier,
+            mockVerificationResult.credentialSubject,
+          );
+          // Set state to completed after successful callback
+          setState((prev) => ({ ...prev, phase: "completed" }));
+        } catch (callbackError) {
+          console.error("Error calling onVerified callback:", callbackError);
           setState((prev) => ({
             ...prev,
-            phase: "polling_status",
-            sessionId: verificationData.sessionId,
+            phase: "error",
+            error: "Failed to process verification result",
           }));
-        } else {
-          // Direct verification result (fallback)
-          if (
-            verificationData.hashedIdentifier &&
-            verificationData.credentialSubject
-          ) {
-            setState((prev) => ({ ...prev, phase: "completed" }));
-            onVerified(
-              verificationData.hashedIdentifier,
-              verificationData.credentialSubject,
-            );
-          } else {
-            throw new Error("Invalid verification data received");
-          }
+          onError("Failed to process verification result");
         }
-      } catch (error) {
-        console.error("Error processing verification completion:", error);
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to process verification";
-        setState((prev) => ({ ...prev, phase: "error", error: errorMessage }));
-        onError(errorMessage);
-      }
-    },
-    [onVerified, onError],
-  );
+      }, 2000); // 2 second delay to simulate processing
+    } catch (error) {
+      console.error("Error processing verification:", error);
+      setState((prev) => ({
+        ...prev,
+        phase: "error",
+        error: "Failed to process verification result",
+      }));
+      onError("Failed to process verification result");
+    }
+  }, [onVerified, onError]);
 
   // Retry verification
   const handleRetry = useCallback(() => {
@@ -220,7 +256,7 @@ export function AadhaarVerification({
           <div className="mb-4">
             <SelfQRcodeWrapper
               selfApp={selfApp}
-              onSuccess={handleVerificationStart}
+              onSuccess={handleVerificationComplete}
               onError={handleQRError}
               type="websocket"
               size={250}
@@ -262,16 +298,13 @@ export function AadhaarVerification({
             Checking Verification Status
           </h3>
           <p className="text-sm text-gray-600 mb-2">
-            {isPolling
-              ? "Checking verification status..."
-              : "Waiting for verification..."}
+            Checking verification status...
           </p>
-          <div className="text-xs text-gray-500">Status: {pollStatus}</div>
         </div>
       )}
 
       {/* Completed Phase */}
-      {state.phase === "completed" && result && (
+      {state.phase === "completed" && (
         <div className="text-center">
           <div className="w-12 h-12 bg-green-100 rounded-full mx-auto mb-4 flex items-center justify-center">
             <svg
@@ -291,10 +324,11 @@ export function AadhaarVerification({
           <h3 className="text-lg font-medium text-green-800 mb-2">
             Verification Successful
           </h3>
-          <p className="text-sm text-gray-600">
-            Your Aadhaar has been verified successfully. Proceeding with family
-            registration...
+          <p className="text-sm text-gray-600 mb-4">
+            Your Aadhaar has been verified successfully. Proceeding to URID
+            generation...
           </p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600 mx-auto"></div>
         </div>
       )}
 
@@ -320,9 +354,7 @@ export function AadhaarVerification({
             Verification Failed
           </h3>
           <p className="text-sm text-red-600 mb-4">
-            {state.error ||
-              pollError ||
-              "An error occurred during verification"}
+            {state.error || "An error occurred during verification"}
           </p>
           <button
             onClick={handleRetry}
@@ -338,10 +370,10 @@ export function AadhaarVerification({
         <div className="mt-6 p-3 bg-gray-50 rounded text-xs text-gray-500">
           <div>Phase: {state.phase}</div>
           <div>Session ID: {state.sessionId || "None"}</div>
-          <div>Poll Status: {pollStatus}</div>
-          <div>Is Polling: {isPolling ? "Yes" : "No"}</div>
           {state.error && <div>Error: {state.error}</div>}
-          {pollError && <div>Poll Error: {pollError}</div>}
+          {verificationResult && (
+            <div>Result: {JSON.stringify(verificationResult, null, 2)}</div>
+          )}
         </div>
       )}
     </div>

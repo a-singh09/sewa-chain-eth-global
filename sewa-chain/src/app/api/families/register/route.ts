@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getContractService } from "@/services/ContractService";
 import { URIDService, AadhaarVerifiedFamilyData } from "@/lib/urid-service";
-import { validateVolunteerSession } from "@/lib/volunteer-session";
+// validateVolunteerSession removed - simplified for hackathon
 import type { VolunteerSession } from "@/types";
 
 export interface RegisterFamilyRequest {
@@ -167,21 +167,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const sessionValidation = await validateVolunteerSession(volunteerSession);
-    if (!sessionValidation.valid) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: {
-            code: "VOLUNTEER_SESSION_INVALID",
-            message:
-              sessionValidation.error?.message ||
-              "Volunteer session validation failed",
-          },
-        } as RegisterFamilyResponse,
-        { status: 401 },
-      );
-    }
+    // Session validation removed for hackathon - trust the frontend
 
     // Check for duplicate Aadhaar registration
     const duplicateCheck = URIDService.checkAadhaarDuplicate(

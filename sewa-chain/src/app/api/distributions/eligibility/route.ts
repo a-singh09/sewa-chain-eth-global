@@ -7,7 +7,7 @@ import {
   COOLDOWN_PERIODS,
 } from "@/types";
 import { URIDService } from "@/lib/urid-service";
-import { checkFamilyEligibility } from "../record/route";
+import { distributionRegistry } from "../record/route";
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,7 +19,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Missing required fields",
+          error: {
+            code: "MISSING_FIELDS",
+            message: "Missing required fields: urid, aidType, volunteerSession",
+          },
         },
         { status: 400 },
       );
@@ -30,7 +33,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid URID format",
+          error: {
+            code: "INVALID_URID",
+            message: "Invalid URID format",
+          },
         },
         { status: 400 },
       );
@@ -41,7 +47,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid aid type",
+          error: {
+            code: "INVALID_AID_TYPE",
+            message: "Invalid aid type",
+          },
         },
         { status: 400 },
       );
@@ -64,7 +73,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(
           {
             success: false,
-            error: "Volunteer session has expired",
+            error: {
+              code: "SESSION_EXPIRED",
+              message: "Volunteer session has expired",
+            },
           },
           { status: 401 },
         );
@@ -74,34 +86,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Invalid volunteer session",
+          error: {
+            code: "INVALID_SESSION",
+            message: "Invalid volunteer session",
+          },
         },
         { status: 401 },
       );
     }
 
-    // Check if family exists
-    const familyExists = await URIDService.checkURIDExists(urid);
-    if (!familyExists) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Family not found",
-        },
-        { status: 404 },
-      );
-    }
-
-    // Generate URID hash for eligibility check
+    // Generate URID hash for lookup
     const uridHash = URIDService.hashURID(urid);
 
-    // Check eligibility
+    // Check family eligibility for this aid type
     const eligibility = await checkFamilyEligibility(uridHash, aidType);
 
     return NextResponse.json({
       success: true,
       eligibility,
-      cooldownPeriod: COOLDOWN_PERIODS[aidType],
     });
   } catch (error) {
     console.error("Eligibility check error:", error);
@@ -109,9 +111,62 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Failed to check eligibility. Please try again.",
+        error: {
+          code: "INTERNAL_ERROR",
+          message: "Failed to check eligibility. Please try again.",
+        },
       },
       { status: 500 },
     );
+  }
+}
+
+// Check family eligibility for aid type based on cooldown periods
+async function checkFamilyEligibility(
+  uridHash: string,
+  aidType: AidType,
+): Promise<EligibilityResult> {
+  const familyDistributions = distributionRegistry.get(uridHash) || [];
+
+  // Find the most recent distribution of this aid type
+  const recentDistributions = familyDistributions
+    .filter((dist) => dist.aidType === aidType && dist.confirmed)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  if (recentDistributions.length === 0) {
+    // No previous distributions of this type, family is eligible
+    return {
+      eligible: true,
+      timeUntilEligible: 0,
+    };
+  }
+
+  const lastDistribution = recentDistributions[0];
+  const cooldownPeriod = COOLDOWN_PERIODS[aidType];
+  const timeSinceLastDistribution = Date.now() - lastDistribution.timestamp;
+
+  if (timeSinceLastDistribution >= cooldownPeriod) {
+    // Cooldown period has passed, family is eligible
+    return {
+      eligible: true,
+      timeUntilEligible: 0,
+      lastDistribution: {
+        timestamp: lastDistribution.timestamp,
+        quantity: lastDistribution.quantity,
+        location: lastDistribution.location,
+      },
+    };
+  } else {
+    // Still in cooldown period
+    const timeUntilEligible = cooldownPeriod - timeSinceLastDistribution;
+    return {
+      eligible: false,
+      timeUntilEligible,
+      lastDistribution: {
+        timestamp: lastDistribution.timestamp,
+        quantity: lastDistribution.quantity,
+        location: lastDistribution.location,
+      },
+    };
   }
 }

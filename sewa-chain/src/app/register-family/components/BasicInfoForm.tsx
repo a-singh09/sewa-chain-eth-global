@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { Button, Input, Select } from "@worldcoin/mini-apps-ui-kit-react";
+import { Button } from "@worldcoin/mini-apps-ui-kit-react";
 import {
   UserIcon,
   MapPinIcon,
@@ -192,12 +192,12 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
 
   return (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <UsersIcon className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="text-center mb-6 sm:mb-8">
+        <UsersIcon className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 mx-auto mb-3 sm:mb-4" />
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
           Family Registration
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600 px-2">
           Enter basic family information to begin the registration process
         </p>
       </div>
@@ -213,17 +213,17 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
           </label>
           <div className="relative">
             <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            <Input
+            <input
               id="headOfFamily"
               name="headOfFamily"
               type="text"
               value={formData.headOfFamily}
               onChange={(e) => updateField("headOfFamily", e.target.value)}
               placeholder="Enter full name"
-              className={`pl-10 min-h-[48px] text-base ${
+              className={`w-full pl-10 pr-4 py-3 text-base border rounded-lg focus:ring-2 focus:outline-none ${
                 errors.headOfFamily
                   ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                  : "focus:ring-blue-500 focus:border-blue-500"
+                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               }`}
               autoComplete="name"
               disabled={isSubmitting}
@@ -253,7 +253,7 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
           </label>
           <div className="relative">
             <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            <Input
+            <input
               id="familySize"
               name="familySize"
               type="number"
@@ -264,10 +264,10 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
               onChange={(e) =>
                 updateField("familySize", parseInt(e.target.value) || 1)
               }
-              className={`pl-10 min-h-[48px] text-base ${
+              className={`w-full pl-10 pr-4 py-3 text-base border rounded-lg focus:ring-2 focus:outline-none ${
                 errors.familySize
                   ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                  : "focus:ring-blue-500 focus:border-blue-500"
+                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               }`}
               disabled={isSubmitting}
               aria-invalid={!!errors.familySize}
@@ -301,25 +301,45 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
           </label>
           <div className="relative">
             <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
-            <Select
+            <select
+              id="location"
+              name="location"
               value={formData.location}
-              onValueChange={(value) => updateField("location", value)}
-              placeholder="Select your state"
-              className={`pl-10 min-h-[48px] text-base ${
+              onChange={(e) => updateField("location", e.target.value)}
+              className={`w-full pl-10 pr-10 py-3 text-base border rounded-lg bg-white appearance-none cursor-pointer min-h-[48px] touch-manipulation ${
                 errors.location
-                  ? "border-red-300 focus:ring-red-500"
-                  : "focus:ring-blue-500"
+                  ? "border-red-300 focus:ring-red-500 focus:border-red-500"
+                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               }`}
               disabled={isSubmitting}
               aria-invalid={!!errors.location}
               aria-describedby={errors.location ? "location-error" : undefined}
+              required
             >
+              <option value="" disabled>
+                Select your state
+              </option>
               {INDIAN_STATES.map((state) => (
-                <Select.Item key={state} value={state}>
+                <option key={state} value={state}>
                   {state}
-                </Select.Item>
+                </option>
               ))}
-            </Select>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
           {errors.location && (
             <div className="mt-2 flex items-start">
@@ -341,17 +361,17 @@ export function BasicInfoForm({ onNext, initialData }: BasicInfoFormProps) {
           </label>
           <div className="relative">
             <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-            <Input
+            <input
               id="contactNumber"
               name="contactNumber"
               type="tel"
               value={formData.contactNumber}
               onChange={(e) => updateField("contactNumber", e.target.value)}
               placeholder="+91 XXXXXXXXXX"
-              className={`pl-10 min-h-[48px] text-base ${
+              className={`w-full pl-10 pr-4 py-3 text-base border rounded-lg focus:ring-2 focus:outline-none ${
                 errors.contactNumber
                   ? "border-red-300 focus:ring-red-500 focus:border-red-500"
-                  : "focus:ring-blue-500 focus:border-blue-500"
+                  : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
               }`}
               autoComplete="tel"
               disabled={isSubmitting}

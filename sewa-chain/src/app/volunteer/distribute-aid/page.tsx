@@ -12,6 +12,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { QRScanner } from "@/components/QRScanner";
 import { AidTypeSelector } from "@/components/AidTypeSelector";
+import { VolunteerVerification } from "@/components/VolunteerVerification";
 import { useVolunteerSession } from "@/hooks/useVolunteerSession";
 import {
   DistributionState,
@@ -22,7 +23,8 @@ import {
 } from "@/types";
 
 export default function DistributeAidPage() {
-  const { volunteerSession, isLoading: sessionLoading } = useVolunteerSession();
+  const { session: volunteerSession, isLoading: sessionLoading } =
+    useVolunteerSession();
   const [distributionState, setDistributionState] = useState<DistributionState>(
     {
       phase: "scanning",
@@ -63,8 +65,8 @@ export default function DistributeAidPage() {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || "Failed to validate family");
+      if (!response.ok || !data.success) {
+        throw new Error(data.error?.message || "Failed to validate family");
       }
 
       // Check eligibility for all aid types
@@ -222,28 +224,9 @@ export default function DistributeAidPage() {
     );
   }
 
-  // Show error if no volunteer session
+  // Show verification form if no volunteer session
   if (!volunteerSession) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Volunteer Verification Required
-          </h2>
-          <p className="text-gray-600 mb-6">
-            You need to verify your volunteer status before distributing aid.
-          </p>
-          <Button
-            onClick={() => (window.location.href = "/volunteer/verify")}
-            variant="primary"
-            className="w-full min-h-[44px]"
-          >
-            Verify as Volunteer
-          </Button>
-        </div>
-      </div>
-    );
+    return <VolunteerVerificationRequired />;
   }
 
   return (
@@ -557,6 +540,54 @@ function CompletePhase({ onStartNew }: { onStartNew: () => void }) {
       >
         Distribute to Another Family
       </Button>
+    </div>
+  );
+}
+
+// Volunteer Verification Required Component
+function VolunteerVerificationRequired() {
+  const { login } = useVolunteerSession();
+  const [isVerifying, setIsVerifying] = useState(false);
+
+  const handleVolunteerVerified = (volunteerData: VolunteerSession) => {
+    login(volunteerData);
+    // The page will automatically re-render and show the distribute aid interface
+  };
+
+  const handleVerificationError = (error: any) => {
+    console.error("Volunteer verification failed:", error);
+    setIsVerifying(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full">
+        <div className="text-center mb-6">
+          <ExclamationTriangleIcon className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Volunteer Verification Required
+          </h2>
+          <p className="text-gray-600">
+            You need to verify your volunteer status before distributing aid.
+          </p>
+        </div>
+
+        <VolunteerVerification
+          onVerified={handleVolunteerVerified}
+          onError={handleVerificationError}
+          disabled={isVerifying}
+        />
+
+        <div className="mt-6 text-center">
+          <Button
+            onClick={() => (window.location.href = "/home")}
+            variant="secondary"
+            className="w-full"
+          >
+            Back to Home
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }

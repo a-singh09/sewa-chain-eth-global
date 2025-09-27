@@ -12,7 +12,11 @@ declare global {
       status: "pending" | "completed" | "failed" | "expired";
       result?: boolean;
       hashedIdentifier?: string;
-      credentialSubject?: any;
+      credentialSubject?: {
+        nationality: string;
+        gender: string;
+        minimumAge: boolean;
+      };
       timestamp: number;
       expiresAt: number;
     }

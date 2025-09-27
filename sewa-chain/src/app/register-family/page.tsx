@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Input, Select } from "@worldcoin/mini-apps-ui-kit-react";
+import { Button, Input } from "@worldcoin/mini-apps-ui-kit-react";
 import { Page } from "@/components/PageLayout";
 import { AadhaarVerification } from "@/components/AadhaarVerification";
 import {
@@ -153,8 +153,9 @@ export default function FamilyRegistrationPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           hashedAadhaar: hashedId,
-          familyData: registrationState.familyData,
-          credentialSubject: credentialSubject,
+          location: registrationState.familyData.location,
+          familySize: registrationState.familyData.familySize,
+          contactInfo: registrationState.familyData.contactNumber,
           // Include additional context for URID generation
           verificationMethod: "self_protocol",
           timestamp: Date.now(),
@@ -250,12 +251,12 @@ export default function FamilyRegistrationPage() {
 
   const renderBasicInfoStep = () => (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <UsersIcon className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="text-center mb-6 sm:mb-8">
+        <UsersIcon className="w-12 h-12 sm:w-16 sm:h-16 text-blue-600 mx-auto mb-3 sm:mb-4" />
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
           Family Registration
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600 px-2">
           Enter basic family information to begin the registration process
         </p>
       </div>
@@ -263,17 +264,17 @@ export default function FamilyRegistrationPage() {
       <form onSubmit={handleBasicInfoSubmit} className="space-y-4">
         {/* Head of Family */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Head of Family Name *
           </label>
           <div className="relative">
-            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
               type="text"
               value={registrationState.familyData.headOfFamily}
               onChange={(e) => updateFamilyData("headOfFamily", e.target.value)}
               placeholder="Enter full name"
-              className="pl-10"
+              className="pl-10 min-h-[48px] text-base touch-manipulation"
               required
             />
           </div>
@@ -281,11 +282,11 @@ export default function FamilyRegistrationPage() {
 
         {/* Family Size */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Family Size *
           </label>
           <div className="relative">
-            <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <UsersIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
               type="number"
               min="1"
@@ -294,7 +295,7 @@ export default function FamilyRegistrationPage() {
               onChange={(e) =>
                 updateFamilyData("familySize", parseInt(e.target.value) || 1)
               }
-              className="pl-10"
+              className="pl-10 min-h-[48px] text-base touch-manipulation"
               required
             />
           </div>
@@ -306,29 +307,47 @@ export default function FamilyRegistrationPage() {
             Location (State/District) *
           </label>
           <div className="relative">
-            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <Select
+            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 z-10 pointer-events-none" />
+            <select
               value={registrationState.familyData.location}
-              onValueChange={(value) => updateFamilyData("location", value)}
-              placeholder="Select your state"
-              className="pl-10"
+              onChange={(e) => updateFamilyData("location", e.target.value)}
+              className="w-full pl-10 pr-10 py-3 text-base border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white appearance-none cursor-pointer min-h-[48px] touch-manipulation"
+              required
             >
+              <option value="" disabled>
+                Select your state
+              </option>
               {INDIAN_STATES.map((state) => (
-                <Select.Item key={state} value={state}>
+                <option key={state} value={state}>
                   {state}
-                </Select.Item>
+                </option>
               ))}
-            </Select>
+            </select>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+              <svg
+                className="w-5 h-5 text-gray-400"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M19 9l-7 7-7-7"
+                />
+              </svg>
+            </div>
           </div>
         </div>
 
         {/* Contact Number */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
             Contact Number *
           </label>
           <div className="relative">
-            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
             <Input
               type="tel"
               value={registrationState.familyData.contactNumber}
@@ -336,19 +355,23 @@ export default function FamilyRegistrationPage() {
                 updateFamilyData("contactNumber", e.target.value)
               }
               placeholder="+91 XXXXXXXXXX"
-              className="pl-10"
+              className="pl-10 min-h-[48px] text-base touch-manipulation"
               required
             />
           </div>
         </div>
 
         {registrationState.error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
             <p className="text-sm text-red-700">{registrationState.error}</p>
           </div>
         )}
 
-        <Button type="submit" variant="primary" className="w-full">
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full min-h-[52px] text-base font-medium touch-manipulation"
+        >
           Continue to Aadhaar Verification
         </Button>
       </form>
@@ -357,15 +380,15 @@ export default function FamilyRegistrationPage() {
 
   const renderAadhaarVerificationStep = () => (
     <div className="space-y-6">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="text-center mb-6 sm:mb-8">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
           Aadhaar Verification
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600 px-2">
           Verify your identity with Self Protocol for secure, privacy-preserving
           registration
         </p>
-        <div className="mt-4 text-sm text-blue-600 bg-blue-50 rounded-lg p-3">
+        <div className="mt-4 text-xs sm:text-sm text-blue-600 bg-blue-50 rounded-lg p-3">
           <p>
             🔒 Your Aadhaar number is never stored - only privacy-preserving
             proofs are generated
@@ -394,25 +417,27 @@ export default function FamilyRegistrationPage() {
       </div>
 
       <AadhaarVerification
-        onVerificationComplete={handleAadhaarVerificationComplete}
+        onVerified={handleAadhaarVerificationComplete}
         onError={handleAadhaarVerificationError}
         familyData={{
+          headOfFamily: registrationState.familyData.headOfFamily,
           familySize: registrationState.familyData.familySize,
           location: registrationState.familyData.location,
-          contactInfo: registrationState.familyData.contactNumber,
+          contactNumber: registrationState.familyData.contactNumber,
         }}
       />
 
       {registrationState.error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
           <p className="text-sm text-red-700">{registrationState.error}</p>
-          <div className="mt-2">
+          <div className="mt-3">
             <Button
               onClick={() =>
                 setRegistrationState((prev) => ({ ...prev, error: undefined }))
               }
               variant="tertiary"
               size="sm"
+              className="min-h-[40px] touch-manipulation"
             >
               Try Again
             </Button>
@@ -430,6 +455,7 @@ export default function FamilyRegistrationPage() {
             }))
           }
           variant="tertiary"
+          className="min-h-[48px] text-base touch-manipulation"
         >
           Back to Basic Info
         </Button>
@@ -460,7 +486,7 @@ export default function FamilyRegistrationPage() {
       </p>
 
       {/* URID Display */}
-      <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
+      <div className="bg-white border-2 border-gray-200 rounded-lg p-4 sm:p-6">
         <h3 className="text-lg font-semibold text-gray-900 mb-4">
           Your Unique Family ID (URID)
         </h3>
@@ -470,12 +496,12 @@ export default function FamilyRegistrationPage() {
             <img
               src={registrationState.qrCode}
               alt="URID QR Code"
-              className="mx-auto w-48 h-48"
+              className="mx-auto w-40 h-40 sm:w-48 sm:h-48"
             />
           </div>
         )}
 
-        <p className="text-2xl font-mono font-bold text-blue-600 mb-2">
+        <p className="text-xl sm:text-2xl font-mono font-bold text-blue-600 mb-2 break-all">
           {registrationState.urid}
         </p>
 
@@ -546,14 +572,14 @@ export default function FamilyRegistrationPage() {
         <Button
           onClick={handleStartOver}
           variant="secondary"
-          className="flex-1"
+          className="flex-1 min-h-[48px] text-base touch-manipulation"
         >
           Register Another Family
         </Button>
         <Button
           onClick={handleGoToDashboard}
           variant="primary"
-          className="flex-1"
+          className="flex-1 min-h-[48px] text-base touch-manipulation"
         >
           Go to Dashboard
         </Button>
@@ -563,13 +589,13 @@ export default function FamilyRegistrationPage() {
 
   return (
     <Page>
-      <Page.Main className="min-h-screen bg-gray-50 py-8">
-        <div className="container mx-auto px-4">
-          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-6">
+      <Page.Main className="min-h-screen bg-gray-50 py-4 sm:py-8">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md mx-auto bg-white rounded-lg shadow-lg p-4 sm:p-6">
             {/* Progress Indicator */}
-            <div className="mb-8">
+            <div className="mb-6 sm:mb-8">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-xs font-medium text-blue-600">
+                <span className="text-xs sm:text-sm font-medium text-blue-600">
                   Step{" "}
                   {registrationState.step === "basic_info"
                     ? "1"
@@ -580,11 +606,11 @@ export default function FamilyRegistrationPage() {
                         : "4"}{" "}
                   of 4
                 </span>
-                <span className="text-xs font-medium text-gray-500">
+                <span className="text-xs sm:text-sm font-medium text-gray-500 text-right">
                   {registrationState.step === "basic_info"
-                    ? "Basic Information"
+                    ? "Basic Info"
                     : registrationState.step === "aadhaar_verification"
-                      ? "Aadhaar Verification"
+                      ? "Verification"
                       : registrationState.step === "urid_generation"
                         ? "URID Generation"
                         : "Complete"}

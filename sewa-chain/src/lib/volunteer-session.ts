@@ -1,11 +1,11 @@
-import { VolunteerSession, VerificationError } from '@/types';
+import { VolunteerSession, VerificationError } from "@/types";
 
 /**
  * Volunteer Session Management Utilities
  * Handles client-side session storage and validation
  */
 
-const VOLUNTEER_SESSION_KEY = 'volunteer_session';
+const VOLUNTEER_SESSION_KEY = "volunteer_session";
 const SESSION_EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes buffer
 
 /**
@@ -14,9 +14,9 @@ const SESSION_EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes buffer
 export function storeVolunteerSession(session: VolunteerSession): void {
   try {
     localStorage.setItem(VOLUNTEER_SESSION_KEY, JSON.stringify(session));
-    console.log('Volunteer session stored:', session.volunteerId);
+    console.log("Volunteer session stored:", session.volunteerId);
   } catch (error) {
-    console.error('Failed to store volunteer session:', error);
+    console.error("Failed to store volunteer session:", error);
   }
 }
 
@@ -27,18 +27,18 @@ export function getVolunteerSession(): VolunteerSession | null {
   try {
     const stored = localStorage.getItem(VOLUNTEER_SESSION_KEY);
     if (!stored) return null;
-    
+
     const session = JSON.parse(stored) as VolunteerSession;
-    
+
     // Check if session is expired
     if (isSessionExpired(session)) {
       clearVolunteerSession();
       return null;
     }
-    
+
     return session;
   } catch (error) {
-    console.error('Failed to retrieve volunteer session:', error);
+    console.error("Failed to retrieve volunteer session:", error);
     return null;
   }
 }
@@ -49,9 +49,9 @@ export function getVolunteerSession(): VolunteerSession | null {
 export function clearVolunteerSession(): void {
   try {
     localStorage.removeItem(VOLUNTEER_SESSION_KEY);
-    console.log('Volunteer session cleared');
+    console.log("Volunteer session cleared");
   } catch (error) {
-    console.error('Failed to clear volunteer session:', error);
+    console.error("Failed to clear volunteer session:", error);
   }
 }
 
@@ -68,7 +68,7 @@ export function isVolunteerAuthenticated(): boolean {
  */
 export function isSessionExpired(session: VolunteerSession): boolean {
   const now = Date.now();
-  return now >= (session.expiresAt - SESSION_EXPIRY_BUFFER);
+  return now >= session.expiresAt - SESSION_EXPIRY_BUFFER;
 }
 
 /**
@@ -84,14 +84,14 @@ export function getSessionTimeRemaining(session: VolunteerSession): number {
  */
 export function formatSessionTimeRemaining(session: VolunteerSession): string {
   const remaining = getSessionTimeRemaining(session);
-  
+
   if (remaining <= 0) {
-    return 'Expired';
+    return "Expired";
   }
-  
+
   const hours = Math.floor(remaining / (1000 * 60 * 60));
   const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m remaining`;
   } else {
@@ -99,51 +99,14 @@ export function formatSessionTimeRemaining(session: VolunteerSession): string {
   }
 }
 
-/**
- * Validate volunteer session with backend
- */
-export async function validateVolunteerSession(
-  session: VolunteerSession
-): Promise<{ valid: boolean; error?: VerificationError }> {
-  try {
-    const response = await fetch('/api/verify-volunteer', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${session.sessionToken}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    const data = await response.json();
-    
-    if (response.ok && data.success) {
-      return { valid: true };
-    } else {
-      return {
-        valid: false,
-        error: {
-          code: data.error?.code || 'VALIDATION_FAILED',
-          message: data.error?.message || 'Session validation failed'
-        }
-      };
-    }
-  } catch (error) {
-    return {
-      valid: false,
-      error: {
-        code: 'NETWORK_ERROR',
-        message: 'Failed to validate session with server'
-      }
-    };
-  }
-}
+// validateVolunteerSession removed - no server validation needed for hackathon demo
 
 /**
  * Check if volunteer has specific permission
  */
 export function hasPermission(
   session: VolunteerSession,
-  permission: string
+  permission: string,
 ): boolean {
   return session.permissions.includes(permission as any);
 }
@@ -158,27 +121,17 @@ export function getVolunteerDisplayInfo(session: VolunteerSession) {
     verifiedAt: new Date(session.verifiedAt).toLocaleDateString(),
     timeRemaining: formatSessionTimeRemaining(session),
     permissions: session.permissions,
-    organizationId: session.organizationId
+    organizationId: session.organizationId,
   };
 }
 
 /**
  * Create a session refresh hook for React components
+ * @deprecated Use useVolunteerSession hook instead for centralized session management
  */
 export function useSessionRefresh(session: VolunteerSession | null) {
-  if (typeof window === 'undefined') return;
-  
-  // Set up automatic session validation every 5 minutes
-  const interval = setInterval(async () => {
-    if (session) {
-      const result = await validateVolunteerSession(session);
-      if (!result.valid) {
-        clearVolunteerSession();
-        // Optionally trigger a page refresh or redirect
-        window.location.reload();
-      }
-    }
-  }, 5 * 60 * 1000);
-  
-  return () => clearInterval(interval);
+  console.warn(
+    "useSessionRefresh is deprecated. Use useVolunteerSession hook instead.",
+  );
+  return () => {};
 }
