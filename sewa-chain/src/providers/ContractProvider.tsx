@@ -299,16 +299,16 @@ export const ContractProvider: React.FC<ContractProviderProps> = ({
     <ContractContext.Provider value={contextValue}>
       {children}
       {state.isLoading && (
-        <div className=\"fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50\">
-          <div className=\"flex items-center gap-2\">
-            <div className=\"animate-spin rounded-full h-4 w-4 border-b-2 border-white\" />
+        <div className="fixed top-4 right-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
             <span>Connecting to blockchain...</span>
           </div>
         </div>
       )}
       {state.error && (
-        <div className=\"fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50\">
-          <div className=\"flex items-center gap-2\">
+        <div className="fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg z-50">
+          <div className="flex items-center gap-2">
             <span>⚠️</span>
             <span>{state.error}</span>
           </div>

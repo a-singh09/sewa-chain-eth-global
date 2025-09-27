@@ -20,7 +20,7 @@ global.fetch = mockFetch;
 const mockVolunteerSession = {
   nullifierHash: 'test-nullifier-hash',
   sessionToken: 'test-session-token',
-  verificationLevel: VerificationLevel.Orb,
+  verificationLevel: VerificationLevel.Device,
   timestamp: Date.now(),
   volunteerId: 'VOL_TEST123',
   permissions: [
@@ -37,7 +37,7 @@ const mockSuccessPayload = {
   nullifier_hash: 'test-nullifier-hash',
   merkle_root: 'test-merkle-root',
   proof: 'test-proof',
-  verification_level: 'orb'
+  verification_level: 'device'
 };
 
 describe('VolunteerVerification Component', () => {
@@ -62,8 +62,8 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    expect(screen.getByText('Verify as Volunteer (Orb)')).toBeInTheDocument();
-    expect(screen.getByText('Orb Verification Required')).toBeInTheDocument();
+    expect(screen.getByText('Verify as Volunteer (Device)')).toBeInTheDocument();
+    expect(screen.getByText('Device Verification Required')).toBeInTheDocument();
   });
 
   test('shows error when MiniKit is not available', async () => {
@@ -76,7 +76,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -102,7 +102,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -122,7 +122,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -156,7 +156,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -165,7 +165,7 @@ describe('VolunteerVerification Component', () => {
     
     expect(mockOnVerified).toHaveBeenCalledWith(mockVolunteerSession);
     expect(screen.getByText('Successfully verified as volunteer!')).toBeInTheDocument();
-    expect(screen.getByText('Verified at Orb Level - Highest Security')).toBeInTheDocument();
+    expect(screen.getByText('Verified at Device Level')).toBeInTheDocument();
   });
 
   test('handles backend verification failure', async () => {
@@ -191,7 +191,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -219,7 +219,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -249,7 +249,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -278,7 +278,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
@@ -289,7 +289,7 @@ describe('VolunteerVerification Component', () => {
     jest.advanceTimersByTime(3000);
     
     await waitFor(() => {
-      expect(screen.getByText('Verify as Volunteer (Orb)')).toBeInTheDocument();
+      expect(screen.getByText('Verify as Volunteer (Device)')).toBeInTheDocument();
     });
     
     jest.useRealTimers();
@@ -304,7 +304,7 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     expect(button).toBeDisabled();
   });
 
@@ -319,15 +319,17 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const container = screen.getByText('Verify as Volunteer (Orb)').closest('.custom-test-class');
+    const container = screen.getByText('Verify as Volunteer (Device)').closest('.custom-test-class');
     expect(container).toHaveClass(customClass);
   });
 
-  test('sends verification with Orb level requirement', async () => {
-    mockMiniKit.commandsAsync.verify.mockResolvedValue({
-      finalPayload: mockSuccessPayload
-    });
+  test('sends verification with Device level requirement', async () => {
+    const { mockFetch, mockMiniKit } = setupMocks();
     
+    mockMiniKit.commandsAsync.verify.mockResolvedValue({
+      finalPayload: { status: 'success' }
+    });
+
     render(
       <VolunteerVerification 
         onVerified={mockOnVerified} 
@@ -335,14 +337,14 @@ describe('VolunteerVerification Component', () => {
       />
     );
     
-    const button = screen.getByText('Verify as Volunteer (Orb)');
+    const button = screen.getByText('Verify as Volunteer (Device)');
     fireEvent.click(button);
     
     await waitFor(() => {
       expect(mockMiniKit.commandsAsync.verify).toHaveBeenCalledWith({
         action: 'verify-volunteer',
-        verification_level: VerificationLevel.Orb
+        verification_level: VerificationLevel.Device
       });
     });
   });
-});"
+});

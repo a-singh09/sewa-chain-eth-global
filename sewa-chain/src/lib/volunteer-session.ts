@@ -181,4 +181,4 @@ export function useSessionRefresh(session: VolunteerSession | null) {
   }, 5 * 60 * 1000);
   
   return () => clearInterval(interval);
-}"
+}

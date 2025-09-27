@@ -153,19 +153,19 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
     switch (txStatus.status) {
       case 'pending':
         return (
-          <div className=\"animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500\" />
+          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500" />
         );
       case 'confirmed':
         return (
-          <div className=\"text-green-500 text-xl\">✓</div>
+          <div className="text-green-500 text-xl">✓</div>
         );
       case 'failed':
         return (
-          <div className=\"text-red-500 text-xl\">✗</div>
+          <div className="text-red-500 text-xl">✗</div>
         );
       case 'timeout':
         return (
-          <div className=\"text-yellow-500 text-xl\">⏱</div>
+          <div className="text-yellow-500 text-xl">⏱</div>
         );
       default:
         return null;
@@ -192,8 +192,8 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
       case 'pending':
         return (
           <div>
-            <div className=\"font-medium\">Transaction Pending</div>
-            <div className=\"text-sm opacity-75\">
+            <div className="font-medium">Transaction Pending</div>
+            <div className="text-sm opacity-75">
               Waiting for confirmation... ({elapsedTime}s)
             </div>
           </div>
@@ -201,8 +201,8 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
       case 'confirmed':
         return (
           <div>
-            <div className=\"font-medium\">Transaction Confirmed!</div>
-            <div className=\"text-sm opacity-75\">
+            <div className="font-medium">Transaction Confirmed!</div>
+            <div className="text-sm opacity-75">
               {txStatus.confirmations} confirmation{txStatus.confirmations !== 1 ? 's' : ''}
               {txStatus.blockNumber && ` • Block ${txStatus.blockNumber}`}
             </div>
@@ -211,8 +211,8 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
       case 'failed':
         return (
           <div>
-            <div className=\"font-medium\">Transaction Failed</div>
-            <div className=\"text-sm opacity-75\">
+            <div className="font-medium">Transaction Failed</div>
+            <div className="text-sm opacity-75">
               {txStatus.error || 'Unknown error occurred'}
             </div>
           </div>
@@ -220,8 +220,8 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
       case 'timeout':
         return (
           <div>
-            <div className=\"font-medium\">Transaction Timeout</div>
-            <div className=\"text-sm opacity-75\">
+            <div className="font-medium">Transaction Timeout</div>
+            <div className="text-sm opacity-75">
               Still pending after {Math.floor(timeout / 1000)}s. Check manually.
             </div>
           </div>
@@ -238,31 +238,31 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
   return (
     <div className={`fixed bottom-4 right-4 max-w-sm w-full z-50 ${className}`}>
       <div className={`border rounded-lg p-4 shadow-lg backdrop-blur-sm ${getStatusColor()}`}>
-        <div className=\"flex items-start gap-3\">
-          <div className=\"flex-shrink-0 mt-0.5\">
+        <div className="flex items-start gap-3">
+          <div className="flex-shrink-0 mt-0.5">
             {getStatusIcon()}
           </div>
           
-          <div className=\"flex-1 min-w-0\">
+          <div className="flex-1 min-w-0">
             {getStatusMessage()}
             
-            <div className=\"flex items-center gap-2 mt-2\">
-              <span className=\"text-xs font-mono bg-white bg-opacity-50 px-2 py-1 rounded\">
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-xs font-mono bg-white bg-opacity-50 px-2 py-1 rounded">
                 {formatTxHash(transactionHash)}
               </span>
               
               <a
                 href={getTransactionUrl(transactionHash)}
-                target=\"_blank\"
-                rel=\"noopener noreferrer\"
-                className=\"text-xs underline hover:no-underline\"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs underline hover:no-underline"
               >
                 View
               </a>
             </div>
             
             {txStatus.gasUsed && (
-              <div className=\"text-xs opacity-75 mt-1\">
+              <div className="text-xs opacity-75 mt-1">
                 Gas used: {Number(txStatus.gasUsed).toLocaleString()}
               </div>
             )}
@@ -270,7 +270,7 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
           
           <button
             onClick={() => setIsVisible(false)}
-            className=\"flex-shrink-0 text-current opacity-50 hover:opacity-100 transition-opacity\"
+            className="flex-shrink-0 text-current opacity-50 hover:opacity-100 transition-opacity"
           >
             ✕
           </button>
@@ -278,10 +278,10 @@ export const TransactionMonitor: React.FC<TransactionMonitorProps> = ({
         
         {/* Progress bar for pending transactions */}
         {txStatus.status === 'pending' && (
-          <div className=\"mt-3\">
-            <div className=\"h-1 bg-white bg-opacity-30 rounded-full overflow-hidden\">
+          <div className="mt-3">
+            <div className="h-1 bg-white bg-opacity-30 rounded-full overflow-hidden">
               <div 
-                className=\"h-full bg-current opacity-50 rounded-full transition-all duration-1000\"
+                className="h-full bg-current opacity-50 rounded-full transition-all duration-1000"
                 style={{ 
                   width: `${Math.min((elapsedTime / (timeout / 1000)) * 100, 100)}%` 
                 }}

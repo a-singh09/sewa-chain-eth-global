@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     const volunteerSession: VolunteerSession = {
       nullifierHash,
       sessionToken,
-      verificationLevel: VerificationLevel.Orb,
+      verificationLevel: VerificationLevel.Device, // Changed from Orb to Device for hackathon
       timestamp: now,
       volunteerId: generateVolunteerId(nullifierHash),
       permissions: [

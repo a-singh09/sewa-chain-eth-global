@@ -56,10 +56,10 @@ export function VolunteerVerification({
         throw new Error('MINIKIT_UNAVAILABLE');
       }
 
-      // Use MiniKit async commands for verification with Orb level
+      // Use MiniKit async commands for verification with Device level (for hackathon demo)
       const { finalPayload } = await MiniKit.commandsAsync.verify({
         action: 'verify-volunteer',
-        verification_level: VerificationLevel.Orb // Highest security requirement
+        verification_level: VerificationLevel.Device // Changed from Orb to Device for hackathon
       });
       
       if (finalPayload.status !== 'success') {
@@ -115,7 +115,7 @@ export function VolunteerVerification({
       case 'failed':
         return 'Verification Failed';
       default:
-        return 'Verify as Volunteer (Orb)';
+        return 'Verify as Volunteer (Device)';
     }
   };
 
@@ -133,27 +133,26 @@ export function VolunteerVerification({
   const getIcon = () => {
     switch (verificationState) {
       case 'success':
-        return <CheckIcon className=\"w-5 h-5\" />;
+        return <CheckIcon className="w-5 h-5" />;
       case 'failed':
-        return <XMarkIcon className=\"w-5 h-5\" />;
+        return <XMarkIcon className="w-5 h-5" />;
       case 'pending':
         return null; // Loading spinner handled by Button component
       default:
-        return <ExclamationTriangleIcon className=\"w-5 h-5\" />;
+        return <ExclamationTriangleIcon className="w-5 h-5" />;
     }
   };
 
   return (
     <div className={`w-full max-w-md mx-auto space-y-4 ${className}`}>
       {/* Security Notice */}
-      <div className=\"bg-blue-50 border border-blue-200 rounded-lg p-4\">
-        <div className=\"flex items-start space-x-3\">
-          <ExclamationTriangleIcon className=\"w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0\" />
-          <div className=\"text-sm\">
-            <p className=\"font-medium text-blue-900 mb-1\">Orb Verification Required</p>
-            <p className=\"text-blue-700\">
-              Volunteer verification requires the highest security level. You must have completed 
-              Orb verification in World App to proceed.
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start space-x-3">
+          <ExclamationTriangleIcon className="w-5 h-5 text-blue-500 mt-0.5 flex-shrink-0" />
+          <div className="text-sm">
+            <p className="font-medium text-blue-900 mb-1">Device Verification Required</p>
+            <p className="text-blue-700">
+              Volunteer verification required. Device level verification is sufficient for this demo.
             </p>
           </div>
         </div>
@@ -165,7 +164,7 @@ export function VolunteerVerification({
         disabled={disabled || verificationState === 'pending' || verificationState === 'success'}
         loading={verificationState === 'pending'}
         variant={getButtonVariant()}
-        className=\"w-full flex items-center justify-center space-x-2 py-3\"
+        className="w-full flex items-center justify-center space-x-2 py-3"
       >
         {getIcon()}
         <span>{getButtonText()}</span>
@@ -186,13 +185,13 @@ export function VolunteerVerification({
 
       {/* Verification Level Badge */}
       {verificationState === 'success' && (
-        <div className=\"flex items-center justify-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg\">
-          <div className=\"w-2 h-2 bg-green-500 rounded-full\"></div>
-          <span className=\"text-sm font-medium text-green-800\">
-            Verified at Orb Level - Highest Security
+        <div className="flex items-center justify-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span className="text-sm font-medium text-green-800">
+            Verified at Device Level
           </span>
         </div>
       )}
     </div>
   );
-}"
+}

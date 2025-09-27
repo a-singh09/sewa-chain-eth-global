@@ -155,4 +155,4 @@ export function useVolunteerPermissions(requiredPermissions: string[] = []) {
     hasAllRequiredPermissions,
     permissions: session?.permissions || []
   };
-}"
+}
