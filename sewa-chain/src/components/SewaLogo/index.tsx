@@ -1,39 +1,41 @@
-import React from 'react';
+import React from "react";
 
 interface SewaLogoProps {
-  size?: 'sm' | 'md' | 'lg';
-  variant?: 'light' | 'dark';
+  size?: "sm" | "md" | "lg";
+  variant?: "light" | "dark";
   showText?: boolean;
   className?: string;
 }
 
 export const SewaLogo: React.FC<SewaLogoProps> = ({
-  size = 'md',
-  variant = 'light',
+  size = "md",
+  variant = "light",
   showText = true,
-  className = '',
+  className = "",
 }) => {
   const sizeClasses = {
-    sm: showText ? 'h-8' : 'h-6 w-6',
-    md: showText ? 'h-12' : 'h-8 w-8',
-    lg: showText ? 'h-16' : 'h-12 w-12',
+    sm: showText ? "h-8" : "h-6 w-6",
+    md: showText ? "h-12" : "h-8 w-8",
+    lg: showText ? "h-16" : "h-12 w-12",
   };
 
   const textSizeClasses = {
-    sm: 'text-lg',
-    md: 'text-2xl',
-    lg: 'text-3xl',
+    sm: "text-lg",
+    md: "text-2xl",
+    lg: "text-3xl",
   };
 
   const colorClasses = {
-    light: 'text-gray-900',
-    dark: 'text-white',
+    light: "text-gray-900",
+    dark: "text-white",
   };
 
-  const iconColor = variant === 'light' ? '#2563eb' : '#60a5fa';
+  const iconColor = variant === "light" ? "#2563eb" : "#60a5fa";
 
   return (
-    <div className={`flex items-center gap-3 ${className}`}>
+    <div
+      className={`flex items-center gap-4 px-6 py-3 rounded-full bg-gradient-to-r from-blue-50 via-white to-green-50 ${className}`}
+    >
       {/* Water Drop + Chain Icon */}
       <div className={`${sizeClasses[size]} flex items-center justify-center`}>
         <svg
@@ -89,13 +91,15 @@ export const SewaLogo: React.FC<SewaLogoProps> = ({
       {/* Logo Text */}
       {showText && (
         <div className="flex flex-col">
-          <h1 className={`font-bold ${textSizeClasses[size]} ${colorClasses[variant]} leading-none`}>
+          <h1
+            className={`font-bold ${textSizeClasses[size]} ${colorClasses[variant]} leading-none`}
+          >
             SewaChain
           </h1>
-          {size === 'lg' && (
-            <p className={`text-sm ${variant === 'light' ? 'text-gray-600' : 'text-gray-300'} leading-none mt-1`}>
-              Flood Relief Coordination
-            </p>
+          {size === "lg" && (
+            <p
+              className={`text-sm ${variant === "light" ? "text-gray-600" : "text-gray-300"} leading-none mt-1`}
+            ></p>
           )}
         </div>
       )}

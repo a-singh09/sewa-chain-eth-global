@@ -16,9 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SewaChain - Flood Relief Coordination",
-  description:
-    "Blockchain-powered flood relief coordination eliminating duplicate aid distribution",
+  title: "SewaChain ",
+  description: "Blockchain-powered  eliminating duplicate aid distribution",
   keywords: [
     "flood relief",
     "disaster coordination",
@@ -37,17 +36,15 @@ export const metadata: Metadata = {
   },
   themeColor: "#2563eb",
   openGraph: {
-    title: "SewaChain - Flood Relief Coordination",
-    description:
-      "Blockchain-powered flood relief coordination eliminating duplicate aid distribution",
+    title: "SewaChain ",
+    description: "Blockchain-powered  eliminating duplicate aid distribution",
     type: "website",
     siteName: "SewaChain",
   },
   twitter: {
     card: "summary_large_image",
-    title: "SewaChain - Flood Relief Coordination",
-    description:
-      "Blockchain-powered flood relief coordination eliminating duplicate aid distribution",
+    title: "SewaChain ",
+    description: "Blockchain-powered  eliminating duplicate aid distribution",
   },
 };
 
