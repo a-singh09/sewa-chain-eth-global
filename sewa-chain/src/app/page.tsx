@@ -69,37 +69,40 @@ export default function HomePage() {
             {/* Hero Content with enhanced gradients */}
             <div className="space-y-6 sm:space-y-8 mb-12 sm:mb-16">
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight text-gray-900 max-w-3xl mx-auto px-2">
-                Eliminate Duplicate Aid Distribution Through{" "}
+                Transform Disaster Relief with{" "}
                 <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-green-600 bg-clip-text text-transparent animate-pulse">
-                  Blockchain Coordination
+                  Smart Data & Blockchain
                 </span>
               </h1>
 
               <p className="text-lg sm:text-xl text-gray-600 max-w-2xl mx-auto px-4 leading-relaxed">
-                SewaChain ensures every flood relief donation reaches unique
-                families through verified identity and transparent blockchain
-                tracking on{" "}
+                SewaChain prevents duplicate aid distribution while providing{" "}
+                <span className="font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  real-time analytics
+                </span>{" "}
+                that show NGOs exactly where help is needed most. Make every
+                donation count through{" "}
                 <span className="font-semibold bg-gradient-to-r from-blue-600 to-green-600 bg-clip-text text-transparent">
-                  World Chain
-                </span>
-                .
+                  data-driven coordination
+                </span>{" "}
+                on World Chain.
               </p>
 
               {/* Feature badges */}
               <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mt-6 px-4">
                 <div className="px-4 py-2 bg-gradient-to-r from-blue-100 to-blue-50 rounded-full border border-blue-200">
                   <span className="text-sm font-medium text-blue-700">
-                    🔐 Identity Verified
+                    🎯 Zero Duplicates
+                  </span>
+                </div>
+                <div className="px-4 py-2 bg-gradient-to-r from-purple-100 to-purple-50 rounded-full border border-purple-200">
+                  <span className="text-sm font-medium text-purple-700">
+                    📊 Smart Analytics
                   </span>
                 </div>
                 <div className="px-4 py-2 bg-gradient-to-r from-green-100 to-green-50 rounded-full border border-green-200">
                   <span className="text-sm font-medium text-green-700">
                     ⛓️ Blockchain Secured
-                  </span>
-                </div>
-                <div className="px-4 py-2 bg-gradient-to-r from-purple-100 to-purple-50 rounded-full border border-purple-200">
-                  <span className="text-sm font-medium text-purple-700">
-                    📊 Real-time Tracking
                   </span>
                 </div>
               </div>
@@ -112,8 +115,8 @@ export default function HomePage() {
                   Choose Your Role
                 </h2>
                 <p className="text-gray-600 max-w-lg mx-auto px-4">
-                  Join our mission to make disaster relief more efficient and
-                  transparent
+                  Join our mission to make disaster relief smarter, more
+                  transparent, and data-driven
                 </p>
               </div>
 
@@ -333,9 +336,10 @@ export default function HomePage() {
                       For NGOs
                     </h3>
                     <p className="text-gray-600 leading-relaxed">
-                      Manage and monitor aid distribution operations with
-                      comprehensive analytics, volunteer oversight, and impact
-                      tracking.
+                      Access real-time insights into aid distribution patterns,
+                      identify underserved regions, and optimize resource
+                      allocation with comprehensive data analytics and volunteer
+                      oversight.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <span className="px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full font-medium">
@@ -445,11 +449,12 @@ export default function HomePage() {
           <div className="relative w-full px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12 sm:mb-16">
               <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-gray-800 via-blue-800 to-green-800 bg-clip-text text-transparent mb-4 sm:mb-6 px-2">
-                How SewaChain Prevents Duplicate Distribution
+                How SewaChain Transforms Aid Distribution
               </h2>
               <p className="text-lg sm:text-xl text-gray-600 max-w-3xl mx-auto px-4 leading-relaxed">
-                Our blockchain-powered system ensures transparent, efficient,
-                and fair aid distribution through cutting-edge technology.
+                Our data-driven blockchain system prevents duplicates while
+                providing actionable insights to NGOs about underserved regions,
+                enabling strategic resource allocation and maximum impact.
               </p>
             </div>
 
@@ -526,7 +531,8 @@ export default function HomePage() {
                   </h3>
                   <p className="text-gray-600 leading-relaxed mb-4">
                     Every transaction is recorded on World Chain, creating an
-                    immutable and transparent aid distribution ledger.
+                    immutable ledger that provides NGOs with transparent
+                    insights into aid distribution patterns and regional needs.
                   </p>
                   <div className="flex items-center text-green-600 text-sm font-medium">
                     <span>Learn more</span>
@@ -562,17 +568,18 @@ export default function HomePage() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                          d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
                         />
                       </svg>
                     </div>
                   </div>
                   <h3 className="text-xl font-bold text-gray-900 mb-4">
-                    Real-Time Tracking
+                    Data-Driven Insights
                   </h3>
                   <p className="text-gray-600 leading-relaxed mb-4">
-                    Live dashboard provides instant updates on aid distribution
-                    progress and family verification status.
+                    Real-time analytics reveal underserved regions and aid gaps,
+                    empowering NGOs to strategically deploy resources where help
+                    is most needed.
                   </p>
                   <div className="flex items-center text-purple-600 text-sm font-medium">
                     <span>Learn more</span>
