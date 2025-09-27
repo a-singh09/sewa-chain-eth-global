@@ -2,16 +2,16 @@ import {
   ISuccessResult,
   IVerifyResponse,
   verifyCloudProof,
-} from '@worldcoin/minikit-js';
-import { NextRequest, NextResponse } from 'next/server';
-import { 
-  VerifyVolunteerRequest, 
+} from "@worldcoin/minikit-js";
+import { NextRequest, NextResponse } from "next/server";
+import {
+  VerifyVolunteerRequest,
   VerifyVolunteerResponse,
   VolunteerSession,
   VerificationLevel,
-  VolunteerPermission
-} from '@/types';
-import { sign } from 'jsonwebtoken';
+  VolunteerPermission,
+} from "@/types";
+import { sign } from "jsonwebtoken";
 
 // In-memory storage for demo purposes - replace with database in production
 const registeredVolunteers = new Set<string>();
@@ -23,31 +23,38 @@ const volunteerSessions = new Map<string, VolunteerSession>();
  */
 export async function POST(req: NextRequest) {
   try {
-    const { payload, action, signal } = (await req.json()) as VerifyVolunteerRequest;
-    
-    if (action !== 'verify-volunteer') {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_ACTION',
-          message: 'Invalid action for volunteer verification'
-        }
-      } as VerifyVolunteerResponse, { status: 400 });
+    const { payload, action, signal } =
+      (await req.json()) as VerifyVolunteerRequest;
+
+    if (action !== "verify-volunteer") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_ACTION",
+            message: "Invalid action for volunteer verification",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 400 },
+      );
     }
 
     const app_id = process.env.NEXT_PUBLIC_APP_ID as `app_${string}`;
-    
+
     if (!app_id) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'CONFIGURATION_ERROR',
-          message: 'App ID not configured'
-        }
-      } as VerifyVolunteerResponse, { status: 500 });
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "CONFIGURATION_ERROR",
+            message: "App ID not configured",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 500 },
+      );
     }
 
-    // Verify the proof using World ID
+    // Verify the proof using World ID (supports both Device and Orb level)
     const verifyRes = (await verifyCloudProof(
       payload,
       app_id,
@@ -56,39 +63,85 @@ export async function POST(req: NextRequest) {
     )) as IVerifyResponse;
 
     if (!verifyRes.success) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'INVALID_PROOF',
-          message: 'World ID verification failed'
-        }
-      } as VerifyVolunteerResponse, { status: 400 });
+      console.error("World ID verification failed:", verifyRes);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "INVALID_PROOF",
+            message: "World ID verification failed",
+            details: verifyRes.detail || "Unknown verification error",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 400 },
+      );
     }
 
     const nullifierHash = payload.nullifier_hash;
-    
+
+    console.log(
+      `World ID verification successful for nullifier: ${nullifierHash.slice(0, 8)}...`,
+    );
+
     // Check if this nullifier is already registered (prevent duplicate registrations)
     if (registeredVolunteers.has(nullifierHash)) {
-      return NextResponse.json({
-        success: false,
-        error: {
-          code: 'ALREADY_REGISTERED',
-          message: 'This identity is already registered as a volunteer'
-        }
-      } as VerifyVolunteerResponse, { status: 409 });
+      console.log(
+        `Duplicate registration attempt for nullifier: ${nullifierHash.slice(0, 8)}...`,
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "ALREADY_REGISTERED",
+            message: "This identity is already registered as a volunteer",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 409 },
+      );
     }
 
     // Create volunteer session
     const now = Date.now();
-    const sessionToken = sign(
-      { 
-        nullifierHash, 
-        volunteerId: generateVolunteerId(nullifierHash),
-        iat: Math.floor(now / 1000)
-      },
-      process.env.JWT_SECRET || 'dev-secret-key',
-      { expiresIn: '24h' }
-    );
+    const jwtSecret = process.env.JWT_SECRET;
+
+    if (!jwtSecret) {
+      console.error("JWT_SECRET not configured");
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "CONFIGURATION_ERROR",
+            message: "JWT secret not configured",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 500 },
+      );
+    }
+
+    let sessionToken: string;
+    try {
+      sessionToken = sign(
+        {
+          nullifierHash,
+          volunteerId: generateVolunteerId(nullifierHash),
+          iat: Math.floor(now / 1000),
+        },
+        jwtSecret,
+        { expiresIn: "24h" },
+      );
+    } catch (jwtError) {
+      console.error("JWT signing error:", jwtError);
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "JWT_ERROR",
+            message: "Failed to create session token",
+          },
+        } as VerifyVolunteerResponse,
+        { status: 500 },
+      );
+    }
 
     const volunteerSession: VolunteerSession = {
       nullifierHash,
@@ -99,10 +152,10 @@ export async function POST(req: NextRequest) {
       permissions: [
         VolunteerPermission.DISTRIBUTE_AID,
         VolunteerPermission.VERIFY_BENEFICIARIES,
-        VolunteerPermission.VIEW_DISTRIBUTION_DATA
+        VolunteerPermission.VIEW_DISTRIBUTION_DATA,
       ],
-      expiresAt: now + (24 * 60 * 60 * 1000), // 24 hours
-      verifiedAt: now
+      expiresAt: now + 24 * 60 * 60 * 1000, // 24 hours
+      verifiedAt: now,
     };
 
     // Store volunteer registration and session
@@ -111,21 +164,26 @@ export async function POST(req: NextRequest) {
 
     console.log(`New volunteer registered: ${volunteerSession.volunteerId}`);
 
-    return NextResponse.json({
-      success: true,
-      volunteerSession
-    } as VerifyVolunteerResponse, { status: 200 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        volunteerSession,
+      } as VerifyVolunteerResponse,
+      { status: 200 },
+    );
   } catch (error) {
-    console.error('Volunteer verification error:', error);
-    
-    return NextResponse.json({
-      success: false,
-      error: {
-        code: 'VERIFICATION_FAILED',
-        message: 'Internal server error during verification'
-      }
-    } as VerifyVolunteerResponse, { status: 500 });
+    console.error("Volunteer verification error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "VERIFICATION_FAILED",
+          message: "Internal server error during verification",
+        },
+      } as VerifyVolunteerResponse,
+      { status: 500 },
+    );
   }
 }
 
@@ -141,26 +199,35 @@ function generateVolunteerId(nullifierHash: string): string {
  * GET endpoint to check volunteer session status
  */
 export async function GET(req: NextRequest) {
-  const sessionToken = req.headers.get('authorization')?.replace('Bearer ', '');
-  
+  const sessionToken = req.headers.get("authorization")?.replace("Bearer ", "");
+
   if (!sessionToken) {
-    return NextResponse.json({
-      success: false,
-      error: { code: 'NO_TOKEN', message: 'No session token provided' }
-    }, { status: 401 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: { code: "NO_TOKEN", message: "No session token provided" },
+      },
+      { status: 401 },
+    );
   }
 
   const session = volunteerSessions.get(sessionToken);
-  
+
   if (!session || session.expiresAt < Date.now()) {
-    return NextResponse.json({
-      success: false,
-      error: { code: 'INVALID_SESSION', message: 'Invalid or expired session' }
-    }, { status: 401 });
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          code: "INVALID_SESSION",
+          message: "Invalid or expired session",
+        },
+      },
+      { status: 401 },
+    );
   }
 
   return NextResponse.json({
     success: true,
-    volunteerSession: session
+    volunteerSession: session,
   });
 }
