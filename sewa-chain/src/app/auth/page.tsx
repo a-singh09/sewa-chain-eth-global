@@ -118,56 +118,56 @@ export default function AuthPage() {
         </Page.Header>
         <Page.Main>
           <div className="max-w-md mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <UserCircleIcon className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Volunteer Authentication
-            </h1>
-            <p className="text-gray-600">
-              Verify your identity to become an authorized aid distributor
-            </p>
-          </div>
+            {/* Header */}
+            <div className="text-center mb-8">
+              <UserCircleIcon className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Volunteer Authentication
+              </h1>
+              <p className="text-gray-600">
+                Verify your identity to become an authorized aid distributor
+              </p>
+            </div>
 
-          {/* Info Card */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-2">
-              What you'll get:
-            </h3>
-            <ul className="text-sm text-blue-800 space-y-1">
-              <li>• Authority to register beneficiary families</li>
-              <li>• Ability to distribute aid and record transactions</li>
-              <li>• Access to distribution tracking dashboard</li>
-              <li>• Secure session with World ID verification</li>
-            </ul>
-          </div>
+            {/* Info Card */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-blue-900 mb-2">
+                What you'll get:
+              </h3>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Authority to register beneficiary families</li>
+                <li>• Ability to distribute aid and record transactions</li>
+                <li>• Access to distribution tracking dashboard</li>
+                <li>• Secure session with World ID verification</li>
+              </ul>
+            </div>
 
-          {/* Auth Options */}
-          <div className="space-y-4">
-            <Button
-              onClick={handleVolunteerAuth}
-              variant="primary"
-              className="w-full min-h-[44px]"
-            >
-              Verify with World ID
-            </Button>
+            {/* Auth Options */}
+            <div className="space-y-4">
+              <Button
+                onClick={handleVolunteerAuth}
+                variant="primary"
+                className="w-full min-h-[44px]"
+              >
+                Verify with World ID
+              </Button>
 
-            <Button
-              onClick={() => router.push("/")}
-              variant="secondary"
-              className="w-full min-h-[44px]"
-            >
-              Back to Home
-            </Button>
-          </div>
+              <Button
+                onClick={() => router.push("/")}
+                variant="secondary"
+                className="w-full min-h-[44px]"
+              >
+                Back to Home
+              </Button>
+            </div>
 
-          {/* Security Notice */}
-          <div className="mt-6 text-center text-xs text-gray-500">
-            <p>
-              Your identity will be verified using World ID for security and to
-              prevent fraud.
-            </p>
-          </div>
+            {/* Security Notice */}
+            <div className="mt-6 text-center text-xs text-gray-500">
+              <p>
+                Your identity will be verified using World ID for security and
+                to prevent fraud.
+              </p>
+            </div>
           </div>
         </Page.Main>
       </Page>
@@ -180,54 +180,55 @@ export default function AuthPage() {
         </Page.Header>
         <Page.Main>
           <div className="max-w-md mx-auto">
-          {/* Header */}
-          <div className="text-center mb-8">
-            <UserCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Beneficiary Registration
-            </h1>
-            <p className="text-gray-600">
-              Register to receive aid assistance during flood relief
-            </p>
-          </div>
-
-          {/* Info Card */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-green-900 mb-2">
-              What you'll get:
-            </h3>
-            <ul className="text-sm text-green-800 space-y-1">
-              <li>• Unique family identifier (URID) for tracking</li>
-              <li>• Secure registration with Aadhaar verification</li>
-              <li>• Access to receive aid without duplication</li>
-              <li>• Transparent distribution records</li>
-            </ul>
-          </div>
-
-          {/* Auth Options */}
-          <div className="space-y-4">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-              <p className="text-sm text-green-800">
-                <strong>Note:</strong> As a beneficiary, you can register for
-                aid assistance.
+            {/* Header */}
+            <div className="text-center mb-8">
+              <UserCircleIcon className="w-16 h-16 text-green-600 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Beneficiary Registration
+              </h1>
+              <p className="text-gray-600">
+                Register to receive aid assistance during flood relief
               </p>
             </div>
 
-            <Button
-              onClick={handleBeneficiaryAuth}
-              variant="primary"
-              className="w-full min-h-[44px]"
-            >
-              Register as Beneficiary
-            </Button>
+            {/* Info Card */}
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-green-900 mb-2">
+                What you'll get:
+              </h3>
+              <ul className="text-sm text-green-800 space-y-1">
+                <li>• Unique family identifier (URID) for tracking</li>
+                <li>• Secure registration with Aadhaar verification</li>
+                <li>• Access to receive aid without duplication</li>
+                <li>• Transparent distribution records</li>
+              </ul>
+            </div>
 
-            <Button
-              onClick={() => router.push("/")}
-              variant="secondary"
-              className="w-full min-h-[44px]"
-            >
-              Back to Home
-            </Button>
+            {/* Auth Options */}
+            <div className="space-y-4">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-green-800">
+                  <strong>Note:</strong> As a beneficiary, you can register for
+                  aid assistance.
+                </p>
+              </div>
+
+              <Button
+                onClick={handleBeneficiaryAuth}
+                variant="primary"
+                className="w-full min-h-[44px]"
+              >
+                Register as Beneficiary
+              </Button>
+
+              <Button
+                onClick={() => router.push("/")}
+                variant="secondary"
+                className="w-full min-h-[44px]"
+              >
+                Back to Home
+              </Button>
+            </div>
           </div>
         </Page.Main>
       </Page>
