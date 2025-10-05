@@ -11,7 +11,9 @@
 
 ---
 
-### ETHGlobal Showcase: https://ethglobal.com/showcase/sewachain-k2pxr
+#### ETHGlobal Showcase: https://ethglobal.com/showcase/sewachain-k2pxr
+
+---
 
 ## 🏆 Competition Tracks
 
