@@ -11,6 +11,8 @@
 
 ---
 
+### ETHGlobal Showcase: https://ethglobal.com/showcase/sewachain-k2pxr
+
 ## 🏆 Competition Tracks
 
 ### 📲 World Chain - Best Mini App ($10,000 Prize Pool)
